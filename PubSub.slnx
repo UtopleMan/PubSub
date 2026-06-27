@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PubSub/PubSub.csproj" />
+    <Project Path="src/PubSub.RabbitMQ/PubSub.RabbitMQ.csproj" />
+    <Project Path="src/PubSub.SourceGenerators/PubSub.SourceGenerators.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PubSub.Tests/PubSub.Tests.csproj" />
+    <Project Path="tests/PubSub.RabbitMQ.IntegrationTests/PubSub.RabbitMQ.IntegrationTests.csproj" />
+  </Folder>
+  <Folder Name="/bench/">
+    <Project Path="bench/PubSub.RabbitMQ.Bench/PubSub.RabbitMQ.Bench.csproj" />
+  </Folder>
+</Solution>

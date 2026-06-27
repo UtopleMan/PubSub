@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>PubSub.RabbitMQ.Bench</RootNamespace>
+    <AssemblyName>PubSub.RabbitMQ.Bench</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+    <CompilerGeneratedFilesOutputPath>obj/Generated</CompilerGeneratedFilesOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\PubSub\PubSub.csproj" />
+    <ProjectReference Include="..\..\src\PubSub.RabbitMQ\PubSub.RabbitMQ.csproj" />
+    <ProjectReference Include="..\..\src\PubSub.SourceGenerators\PubSub.SourceGenerators.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.14.0" />
+    <PackageReference Include="BenchmarkDotNet.Diagnostics.dotTrace" Version="0.14.0" />
+    <PackageReference Include="Testcontainers.RabbitMq" Version="4.7.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.3" />
+    <PackageReference Include="MassTransit" Version="8.3.4" />
+    <PackageReference Include="MassTransit.RabbitMQ" Version="8.3.4" />
+    <PackageReference Include="WolverineFx" Version="3.4.0" />
+    <PackageReference Include="WolverineFx.RabbitMQ" Version="3.4.0" />
+    <PackageReference Include="NServiceBus" Version="10.1.4" />
+    <PackageReference Include="NServiceBus.RabbitMQ" Version="11.2.1" />
+    <PackageReference Include="SlimMessageBus.Host" Version="3.4.0" />
+    <PackageReference Include="SlimMessageBus.Host.RabbitMQ" Version="3.4.0" />
+    <PackageReference Include="SlimMessageBus.Host.Serialization.SystemTextJson" Version="3.4.0" />
+  </ItemGroup>
+
+</Project>
