@@ -43,7 +43,7 @@ internal sealed class PubSubRabbitMqHostedService(
 
         foreach (var c in registrations.Consumers)
         {
-            var queue = c.Topic.Queue ?? $"{c.Topic.Exchange}.{c.Topic.RoutingKey}";
+            var queue = PubSubQueueNaming.ResolveQueueName(c.Topic, c.ConsumerType);
             var errorQueue = $"{queue}.error";
             await channel.QueueDeclareAsync(
                 queue: queue, durable: true, exclusive: false, autoDelete: false,

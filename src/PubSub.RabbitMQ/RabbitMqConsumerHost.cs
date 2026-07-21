@@ -44,7 +44,7 @@ internal sealed class RabbitMqConsumerHost<T, TConsumer> : IHostedService, IInFl
         _topic = topic;
         _prefetch = prefetch;
         _logger = logger;
-        _queueName = topic.Queue ?? $"{topic.Exchange}.{topic.RoutingKey}";
+        _queueName = PubSubQueueNaming.ResolveQueueName(topic, typeof(TConsumer));
         _errorQueueName = $"{_queueName}.error";
         PubSubDiagnostics.RegisterTracker(this);
     }

@@ -60,7 +60,7 @@ public class DlqExceptionHeadersTests(RabbitMqFixture rmq)
     private async Task<int> GetDlqDepthAsync()
     {
         using var http = MgmtHttp();
-        var resp = await http.GetAsync("/api/queues/%2F/pubsub.itests.test.fail.error");
+        var resp = await http.GetAsync("/api/queues/%2F/pubsub.itests.test.fail.PubSub.RabbitMQ.IntegrationTests.FailingConsumer.error");
         if (!resp.IsSuccessStatusCode) return 0;
         var json = await resp.Content.ReadAsStringAsync();
         using var doc = JsonDocument.Parse(json);
@@ -71,7 +71,7 @@ public class DlqExceptionHeadersTests(RabbitMqFixture rmq)
     {
         using var http = MgmtHttp();
         var body = """{"count":5,"ackmode":"ack_requeue_true","encoding":"auto","truncate":50000}""";
-        var resp = await http.PostAsync("/api/queues/%2F/pubsub.itests.test.fail.error/get",
+        var resp = await http.PostAsync("/api/queues/%2F/pubsub.itests.test.fail.PubSub.RabbitMQ.IntegrationTests.FailingConsumer.error/get",
             new StringContent(body, Encoding.UTF8, "application/json"));
         resp.EnsureSuccessStatusCode();
         var json = await resp.Content.ReadAsStringAsync();

@@ -29,15 +29,15 @@ public class ShovelReplayTests(RabbitMqFixture rmq)
         var state = host.Services.GetRequiredService<FailOnceState>();
 
         await publisher.PublishAsync(new FailOnceMessage("KMF"));
-        await WaitForAsync(async () => (await GetQueueDepthAsync("pubsub.itests.test.fail-once.error")) >= 1, TimeSpan.FromSeconds(15));
+        await WaitForAsync(async () => (await GetQueueDepthAsync("pubsub.itests.test.fail-once.PubSub.RabbitMQ.IntegrationTests.FailOnceConsumer.error")) >= 1, TimeSpan.FromSeconds(15));
         state.Failures.ShouldBe(1);
 
-        var moved = await ShovelAsync(from: "pubsub.itests.test.fail-once.error", toRoutingKey: "test.fail-once", toExchange: "pubsub.itests");
+        var moved = await ShovelAsync(from: "pubsub.itests.test.fail-once.PubSub.RabbitMQ.IntegrationTests.FailOnceConsumer.error", toRoutingKey: "test.fail-once", toExchange: "pubsub.itests");
         moved.ShouldBe(1);
 
         await WaitFor(() => state.Successes >= 1, TimeSpan.FromSeconds(10));
         state.Successes.ShouldBe(1);
-        await WaitForAsync(async () => (await GetQueueDepthAsync("pubsub.itests.test.fail-once.error")) == 0, TimeSpan.FromSeconds(5));
+        await WaitForAsync(async () => (await GetQueueDepthAsync("pubsub.itests.test.fail-once.PubSub.RabbitMQ.IntegrationTests.FailOnceConsumer.error")) == 0, TimeSpan.FromSeconds(5));
 
         await host.StopAsync();
     }
