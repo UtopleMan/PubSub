@@ -180,7 +180,6 @@ internal sealed class PubSubMetricsSampler : IHostedService, IDisposable
         _consumePrev = consumeNow;
         _dlqPrev = dlqNow;
 
-        // Handler p95 per queue from this interval's bucket delta.
         var p95ByQueue = new Dictionary<string, long>();
         var mergedDelta = new long[BucketBoundsMs.Length];
         foreach (var (queue, buckets) in _handlerBuckets)
@@ -199,7 +198,6 @@ internal sealed class PubSubMetricsSampler : IHostedService, IDisposable
         }
         var overallP95 = Percentile(mergedDelta, 0.95);
 
-        // Per-queue consume-rate sparkline series.
         var seriesByQueue = new Dictionary<string, IReadOnlyList<double>>();
         foreach (var (queue, rate) in consumeRate)
         {

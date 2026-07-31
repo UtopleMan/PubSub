@@ -1,10 +1,8 @@
 @inject PulseApiClient Api
 @inject IJSRuntime Js
-@* Failed messages: exception-type rail + table with expand, replay/delete, copy shovel. *@
 <main class="flex-1 min-h-0 overflow-hidden p-5 flex flex-col gap-4">
     <div class="grid md:grid-cols-[264px_1fr] gap-4 flex-1 min-h-0">
 
-        @* ---- Exception-type rail ---- *@
         <section class="rounded-lg bg-surface border border-line overflow-hidden flex flex-col min-h-0">
             <div class="px-4 h-12 flex items-center border-b border-line shrink-0">
                 <h2 class="text-[14px] font-medium m-0">Exception type</h2>
@@ -27,7 +25,6 @@
             </div>
         </section>
 
-        @* ---- Failed messages table ---- *@
         <section class="rounded-lg bg-surface border border-line overflow-hidden flex flex-col min-h-0">
             <div class="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-line shrink-0">
                 <h2 class="text-[14px] font-medium m-0">Failed messages</h2>

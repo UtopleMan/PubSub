@@ -130,6 +130,5 @@ public static class PubSubPulseExtensions
         return provider;
     }
 
-    // Small client-facing options payload (subset of PubSubPulseOptions).
     private sealed record PulseClientOptions(string Title, int PollIntervalMs, long WedgeThresholdMs);
 }

@@ -12,7 +12,7 @@ namespace PubSub.Pulse;
 internal sealed class EmbeddedPulseFileProvider : IFileProvider
 {
     private readonly Assembly _assembly;
-    private readonly Dictionary<string, string> _byPath; // normalized path -> actual resource name
+    private readonly Dictionary<string, string> _byPath;
 
     public EmbeddedPulseFileProvider(Assembly assembly)
     {

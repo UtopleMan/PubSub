@@ -59,13 +59,11 @@ public class AdminApiTests(RabbitMqFixture rmq)
         var admin = host.Services.GetRequiredService<IPubSubAdmin>();
         var recorder = host.Services.GetRequiredService<MessageRecorder>();
 
-        // ---- Installation ----
         var install = await admin.GetInstallationAsync();
         install.Provider.ShouldBe("RabbitMQ");
         install.Connected.ShouldBeTrue();
         install.Endpoint.ShouldStartWith("amqp://");
 
-        // ---- 1. Queue stats: happy-path queue drains to 0 with a live consumer attached ----
         var pub = host.Services.GetRequiredService<IPublish<AlphaMessage>>();
         for (var i = 0; i < 3; i++) await pub.PublishAsync(new AlphaMessage(i, $"p{i}"));
         await WaitFor(() => recorder.Alpha.Count >= 3, TimeSpan.FromSeconds(10));
@@ -82,7 +80,6 @@ public class AdminApiTests(RabbitMqFixture rmq)
         alpha.ConsumeRate.ShouldBeGreaterThanOrEqualTo(0);
         (await StatForRoutingKey(admin, "admin.toggle")).ShouldNotBeNull();
 
-        // ---- 2. Failed messages: a thrown handler lands in the error queue with headers ----
         toggle.Fail = true;
         var tp = host.Services.GetRequiredService<IPublish<ToggleMessage>>();
         await tp.PublishAsync(new ToggleMessage("m1"));
@@ -103,7 +100,6 @@ public class AdminApiTests(RabbitMqFixture rmq)
         failed.Headers.ShouldContain(h => h.Key == "x-exception-type");
         failed.ShovelCommand.ShouldContain("--src-queue=" + failed.ErrorQueue);
 
-        // ---- 3. Replay: message goes back to origin, now succeeds, error queue empties ----
         toggle.Fail = false;
         var replay = await admin.ReplayAsync(new ReplayRequest(failed.ErrorQueue, [failed.Id]));
         replay.Replayed.ShouldBe(1);
@@ -113,7 +109,6 @@ public class AdminApiTests(RabbitMqFixture rmq)
             (await admin.GetFailedMessagesAsync(new FailedQuery(Search: "toggle"))).Count == 0,
             TimeSpan.FromSeconds(10));
 
-        // ---- 4. Delete: a fresh failure is dropped permanently ----
         toggle.Fail = true;
         await tp.PublishAsync(new ToggleMessage("m2"));
         string errorQueue = failed.ErrorQueue;

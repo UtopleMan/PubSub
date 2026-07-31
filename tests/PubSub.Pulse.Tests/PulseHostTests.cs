@@ -87,12 +87,14 @@ public class PulseHostTests
         var (app, client, _) = await StartAsync();
         await using var _a = app;
 
-        // The bootstrap script name is fingerprinted at publish; discover it from index.html.
+        // Match the actual <script src> (fingerprinted at publish), not the unfingerprinted
+        // importmap key of the same name — the latter is a bare module specifier the browser
+        // remaps, so it is deliberately never served.
         var html = await client.GetStringAsync("/pulse/");
-        var m = Regex.Match(html, @"_framework/blazor\.webassembly[^""]*\.js");
+        var m = Regex.Match(html, @"<script src=""(_framework/blazor\.webassembly[^""]*\.js)""");
         m.Success.ShouldBeTrue("index.html should reference the blazor.webassembly bootstrap");
 
-        var resp = await client.GetAsync("/pulse/" + m.Value);
+        var resp = await client.GetAsync("/pulse/" + m.Groups[1].Value);
         resp.StatusCode.ShouldBe(HttpStatusCode.OK);
         resp.Content.Headers.ContentType!.MediaType.ShouldBe("text/javascript");
     }

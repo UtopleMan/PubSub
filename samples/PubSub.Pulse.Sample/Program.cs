@@ -21,7 +21,6 @@ builder.Services.AddPubSubRabbitMq(new PubSubRabbitMqOptions
     b.Subscribe<InventoryReserved, FlakyReserver>();
 });
 
-// Expose the vendor-neutral admin API (drives the console) and mount the console.
 builder.Services.AddPubSubRabbitMqAdmin(o => o.ServiceName = "Shop.Api");
 builder.Services.AddPubSubPulse(o => o.Title = "PubSub Pulse — Shop");
 builder.Services.AddHostedService<DemoTraffic>();

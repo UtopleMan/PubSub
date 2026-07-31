@@ -5,7 +5,6 @@ namespace PubSub.Admin;
 /// RabbitMQ (or any other broker) specifics so a future messaging backend can implement the
 /// same admin surface and drive the same console.
 /// </summary>
-// (This file intentionally groups the small DTO records together.)
 
 /// <summary>Identity + connectivity of the messaging installation the console is attached to.</summary>
 public sealed record MessagingInstallation(

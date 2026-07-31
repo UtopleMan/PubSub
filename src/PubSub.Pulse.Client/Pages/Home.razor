@@ -99,7 +99,6 @@
     private async Task RunPollLoopAsync(CancellationToken ct)
     {
         var interval = TimeSpan.FromMilliseconds(Math.Max(500, _options?.PollIntervalMs ?? 3000));
-        // Immediate first fetch, then on the interval.
         await PollAsync(ct);
         _loaded = true;
         await InvokeAsync(StateHasChanged);
