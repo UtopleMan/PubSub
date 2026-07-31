@@ -119,8 +119,15 @@
             }
             @if (Rows.Count == 0)
             {
-                <div class="px-4 py-8 text-center text-[12.5px] text-muted">
-                    @(Queues.Count == 0 ? "No registered consumers, or the admin API is unavailable." : "No queues match the current filter.")
+                <div class="px-4 py-8 flex items-center justify-center gap-2 text-[12.5px] text-muted">
+                    @if (!Loaded)
+                    {
+                        <span class="pulse-spinner text-accent"></span> <span>Connecting…</span>
+                    }
+                    else
+                    {
+                        <span>@(Queues.Count == 0 ? "No registered consumers, or the admin API is unavailable." : "No queues match the current filter.")</span>
+                    }
                 </div>
             }
         </div>
@@ -133,6 +140,7 @@
     [Parameter] public IReadOnlyList<QueueStat> Queues { get; set; } = Array.Empty<QueueStat>();
     [Parameter] public PubSubKpis? Kpis { get; set; }
     [Parameter] public long WedgeThresholdMs { get; set; } = 90_000;
+    [Parameter] public bool Loaded { get; set; }
 
     private string _search = string.Empty;
     private string _status = "all";

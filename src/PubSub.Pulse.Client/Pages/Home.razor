@@ -21,7 +21,7 @@
 
         <nav class="flex items-center gap-0.5">
             <button type="button" @onclick="() => _tab = Tab.Monitoring" class="@TabCls(Tab.Monitoring)">Monitoring</button>
-            <button type="button" @onclick="() => _tab = Tab.Failed" class="@TabCls(Tab.Failed)">
+            <button type="button" @onclick="ShowFailedAsync" class="@TabCls(Tab.Failed)">
                 Failed messages
                 <span class="@(FailedBadge > 0 ? "px-1.5 h-[17px] rounded-full bg-crit text-bg text-[10.5px] font-medium flex items-center tabular-nums" : "hidden")">@FailedBadge</span>
             </button>
@@ -44,11 +44,11 @@
 
     @if (_tab == Tab.Monitoring)
     {
-        <MonitoringTab Queues="_queues" Kpis="_kpis" WedgeThresholdMs="_wedgeThresholdMs" />
+        <MonitoringTab Queues="_queues" Kpis="_kpis" WedgeThresholdMs="_wedgeThresholdMs" Loaded="_loaded" />
     }
     else
     {
-        <FailedTab Failed="_failed" OnChanged="RefreshNowAsync" @ref="_failedTab" />
+        <FailedTab Failed="_failed" Loaded="_failedLoaded" OnChanged="RefreshNowAsync" @ref="_failedTab" />
     }
 </div>
 
@@ -70,6 +70,12 @@
 
     private FailedTab? _failedTab;
     private CancellationTokenSource? _cts;
+
+    // False until the first poll completes, so tabs can show a loading state instead of the
+    // empty/error copy on the initial paint. Failed messages are fetched lazily (only while that
+    // tab is open), so they track a separate flag.
+    private bool _loaded;
+    private bool _failedLoaded;
 
     private int FailedBadge => _topology?.Topics.Sum(t => t.FailedCount) ?? 0;
 
@@ -95,6 +101,8 @@
         var interval = TimeSpan.FromMilliseconds(Math.Max(500, _options?.PollIntervalMs ?? 3000));
         // Immediate first fetch, then on the interval.
         await PollAsync(ct);
+        _loaded = true;
+        await InvokeAsync(StateHasChanged);
         using var timer = new PeriodicTimer(interval);
         try
         {
@@ -113,7 +121,10 @@
             _kpis = await Api.GetKpisAsync(ct);
             _topology = await Api.GetTopologyAsync(ct);
             if (_tab == Tab.Failed)
+            {
                 _failed = await Api.GetFailedAsync(ct: ct) ?? _failed;
+                _failedLoaded = true;
+            }
             await InvokeAsync(StateHasChanged);
         }
         catch (OperationCanceledException) { }
@@ -123,6 +134,14 @@
     private async Task RefreshNowAsync()
     {
         if (_cts is not null) await PollAsync(_cts.Token);
+    }
+
+    // Switch to the failed tab and fetch its data immediately (the poll loop only fetches it while
+    // open), so the first view shows a spinner rather than a premature "no failed messages".
+    private async Task ShowFailedAsync()
+    {
+        _tab = Tab.Failed;
+        if (!_failedLoaded && _cts is not null) await PollAsync(_cts.Token);
     }
 
     private async Task ToggleThemeAsync()

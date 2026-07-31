@@ -36,8 +36,10 @@
                 <input type="text" value="@_search" @oninput="e => _search = e.Value?.ToString() ?? string.Empty"
                        placeholder="error queue, exception, pod…"
                        class="h-8 w-[240px] px-3 rounded-md bg-bg border border-line text-[12px] font-mono text-ink placeholder:text-muted focus-visible:border-accent" />
-                <button type="button" @onclick="ReplayAllAsync"
-                        class="h-8 px-3 rounded-md border border-accent text-[12px] text-accent hover:bg-accentSoft transition-colors">Replay all</button>
+                <button type="button" @onclick="ReplayAllClick" disabled="@Busy"
+                        class="@("h-8 px-3 rounded-md border border-accent text-[12px] text-accent hover:bg-accentSoft transition-colors flex items-center gap-1.5 " + (Busy ? "opacity-60" : ""))">
+                    @if (_busy == "all") { <span class="pulse-spinner"></span> <span>Replaying…</span> } else { <span>Replay all</span> }
+                </button>
             </div>
 
             @if (_sel.Count > 0)
@@ -45,8 +47,10 @@
                 <div class="flex flex-wrap items-center gap-3 px-4 py-2.5 bg-accentSoft border-b border-line shrink-0">
                     <span class="text-[12px] tabular-nums">@_sel.Count selected</span>
                     <div class="flex-1"></div>
-                    <button type="button" @onclick="ReplaySelectedAsync" class="h-8 px-3 rounded-md border border-accent text-[12px] text-accent hover:bg-bg transition-colors">Replay selected</button>
-                    <button type="button" @onclick="() => _confirmDelete = true" class="h-8 px-3 rounded-md border border-line text-[12px] text-crit hover:border-crit transition-colors">Delete</button>
+                    <button type="button" @onclick="ReplaySelectedClick" disabled="@Busy" class="@("h-8 px-3 rounded-md border border-accent text-[12px] text-accent hover:bg-bg transition-colors flex items-center gap-1.5 " + (Busy ? "opacity-60" : ""))">
+                        @if (_busy == "sel") { <span class="pulse-spinner"></span> <span>Replaying…</span> } else { <span>Replay selected</span> }
+                    </button>
+                    <button type="button" @onclick="() => _confirmDelete = true" disabled="@Busy" class="@("h-8 px-3 rounded-md border border-line text-[12px] text-crit hover:border-crit transition-colors " + (Busy ? "opacity-60" : ""))">Delete</button>
                     <button type="button" @onclick="() => _sel.Clear()" class="h-8 px-2 text-[12px] text-muted hover:text-ink">Clear</button>
                 </div>
             }
@@ -91,7 +95,9 @@
                                     <div class="text-[10px] uppercase tracking-[0.09em] text-muted mt-2">Replay — one shovel</div>
                                     <pre class="m-0 p-3 rounded-md bg-surface border border-line text-[11.5px] font-mono text-muted whitespace-pre-wrap break-all">@f.ShovelCommand</pre>
                                     <div class="flex gap-2">
-                                        <button type="button" @onclick="() => ReplayOneAsync(f)" class="h-8 px-3 rounded-md border border-accent text-[12px] text-accent hover:bg-accentSoft transition-colors">Replay this message</button>
+                                        <button type="button" @onclick="() => ReplayOneClick(f)" disabled="@Busy" class="@("h-8 px-3 rounded-md border border-accent text-[12px] text-accent hover:bg-accentSoft transition-colors flex items-center gap-1.5 " + (Busy ? "opacity-60" : ""))">
+                                            @if (_busy == "one:" + f.Id) { <span class="pulse-spinner"></span> <span>Replaying…</span> } else { <span>Replay this message</span> }
+                                        </button>
                                         <button type="button" @onclick="() => CopyAsync(f.ShovelCommand)" class="h-8 px-3 rounded-md border border-line text-[12px] text-muted hover:text-ink hover:border-ink transition-colors">Copy command</button>
                                     </div>
                                 </div>
@@ -105,7 +111,16 @@
                 }
                 @if (Rows.Count == 0)
                 {
-                    <div class="px-4 py-8 text-center text-[12.5px] text-muted">No failed messages. 🎉</div>
+                    <div class="px-4 py-8 flex items-center justify-center gap-2 text-[12.5px] text-muted">
+                        @if (!Loaded)
+                        {
+                            <span class="pulse-spinner text-accent"></span> <span>Loading failed messages…</span>
+                        }
+                        else
+                        {
+                            <span>No failed messages. 🎉</span>
+                        }
+                    </div>
                 }
             </div>
         </section>
@@ -119,8 +134,10 @@
             <div class="text-[14px] font-medium">Delete @_sel.Count message(s)?</div>
             <div class="text-[12.5px] text-muted">This permanently drops them from their error queues. This cannot be undone.</div>
             <div class="flex justify-end gap-2 mt-1">
-                <button type="button" @onclick="() => _confirmDelete = false" class="h-8 px-3 rounded-md border border-line text-[12px] text-muted hover:text-ink">Cancel</button>
-                <button type="button" @onclick="DeleteSelectedAsync" class="h-8 px-3 rounded-md border border-crit text-[12px] text-crit hover:bg-crit hover:text-bg transition-colors">Delete</button>
+                <button type="button" @onclick="() => _confirmDelete = false" disabled="@Busy" class="h-8 px-3 rounded-md border border-line text-[12px] text-muted hover:text-ink">Cancel</button>
+                <button type="button" @onclick="DeleteSelectedClick" disabled="@Busy" class="@("h-8 px-3 rounded-md border border-crit text-[12px] text-crit hover:bg-crit hover:text-bg transition-colors flex items-center gap-1.5 " + (Busy ? "opacity-60" : ""))">
+                    @if (_busy == "del") { <span class="pulse-spinner"></span> <span>Deleting…</span> } else { <span>Delete</span> }
+                </button>
             </div>
         </div>
     </div>
@@ -133,6 +150,7 @@
 
 @code {
     [Parameter] public IReadOnlyList<FailedMessage> Failed { get; set; } = Array.Empty<FailedMessage>();
+    [Parameter] public bool Loaded { get; set; }
     [Parameter] public EventCallback OnChanged { get; set; }
 
     private string _search = string.Empty;
@@ -142,6 +160,26 @@
     private string? _toast;
     private bool _confirmDelete;
     private int _toastSeq;
+
+    // Key of the in-flight replay/delete action (or null when idle). Replay/delete loop a network
+    // call per error queue, so they can take a while — this drives the button spinner and blocks
+    // concurrent/double submits.
+    private string? _busy;
+    private bool Busy => _busy is not null;
+
+    private async Task RunBusy(string key, Func<Task> action)
+    {
+        if (Busy) return;
+        _busy = key;
+        StateHasChanged();
+        try { await action(); }
+        finally { _busy = null; StateHasChanged(); }
+    }
+
+    private Task ReplayAllClick() => RunBusy("all", ReplayAllAsync);
+    private Task ReplaySelectedClick() => RunBusy("sel", ReplaySelectedAsync);
+    private Task DeleteSelectedClick() => RunBusy("del", DeleteSelectedAsync);
+    private Task ReplayOneClick(FailedMessage f) => RunBusy("one:" + f.Id, () => ReplayOneAsync(f));
 
     private record Group(string Type, int Count);
 
