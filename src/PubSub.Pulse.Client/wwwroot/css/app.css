@@ -1,0 +1,61 @@
+html, body {
+    margin: 0;
+    background: var(--c-bg, #161826);
+    color: var(--c-ink, #e9e9ed);
+    font-family: Inter, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+.loading-progress {
+    position: relative;
+    display: block;
+    width: 8rem;
+    height: 8rem;
+    margin: 20vh auto 1rem auto;
+}
+
+.loading-progress circle {
+    fill: none;
+    stroke: var(--c-line, #3f424d);
+    stroke-width: 0.6rem;
+    transform-origin: 50% 50%;
+    transform: rotate(-90deg);
+}
+
+.loading-progress circle:last-child {
+    stroke: var(--c-accent, #9184d9);
+    stroke-dasharray: calc(3.141 * var(--blazor-load-percentage, 0%) * 0.8), 500%;
+    transition: stroke-dasharray 0.05s ease-in-out;
+}
+
+.loading-progress-text {
+    position: absolute;
+    text-align: center;
+    font-weight: 500;
+    inset: calc(20vh + 3.25rem) 0 auto 0.2rem;
+    color: var(--c-muted, #9397ab);
+}
+
+.loading-progress-text:after {
+    content: var(--blazor-load-percentage-text, "Loading");
+}
+
+#blazor-error-ui {
+    color: var(--c-ink, #e9e9ed);
+    background: var(--c-surface, #232532);
+    border-top: 1px solid var(--c-crit, #b4453a);
+    bottom: 0;
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+}
+
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 0.75rem;
+    top: 0.5rem;
+}

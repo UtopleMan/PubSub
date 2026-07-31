@@ -1,0 +1,233 @@
+@using System.Globalization
+@* Monitoring tab: KPI cards, in-flight age gauge + bars, endpoints & queues table. *@
+<main class="flex-1 min-h-0 overflow-hidden p-5 flex flex-col gap-4">
+
+    @* ---- KPI cards ---- *@
+    <div class="grid grid-cols-2 xl:grid-cols-4 gap-4 shrink-0">
+        @foreach (var k in Kpis?.Kpis ?? Array.Empty<PubSubKpi>())
+        {
+            <div class="rounded-lg bg-surface border border-line p-4 flex flex-col gap-2">
+                <div class="flex items-baseline justify-between">
+                    <span class="text-[11px] uppercase tracking-[0.09em] text-muted">@k.Label</span>
+                    <span class="text-[11px] tabular-nums @(k.DeltaIsBad ? "text-crit" : "text-ok")">@KpiDelta(k)</span>
+                </div>
+                <div class="flex items-end gap-2">
+                    <span class="text-[30px] leading-none font-medium tracking-tight tabular-nums">@KpiValue(k)</span>
+                    <span class="text-[12px] text-muted pb-0.5">@k.Unit</span>
+                </div>
+                <Sparkline Values="k.Series" Width="160" Height="30" Area="true" Class="w-full h-[30px] mt-1 overflow-visible" />
+                <span class="text-[11px] text-muted font-mono">@k.Metric</span>
+            </div>
+        }
+    </div>
+
+    @* ---- In-flight message age ---- *@
+    <section class="rounded-lg bg-surface border border-line shrink-0 overflow-hidden">
+        <div class="flex items-center gap-3 px-4 h-12 border-b border-line">
+            <h2 class="text-[14px] font-medium m-0">In-flight message age</h2>
+            <span class="text-[11px] font-mono text-muted">pubsub.consumer.in_flight_age_ms</span>
+            <div class="flex-1"></div>
+            <span class="text-[11px] text-muted">alert threshold</span>
+            <span class="text-[11px] font-mono text-warn">@PulseFormat.Ms(WedgeThresholdMs)</span>
+        </div>
+        <div class="grid lg:grid-cols-[248px_1fr] divide-y lg:divide-y-0 lg:divide-x divide-line">
+            <div class="p-5 flex flex-col items-center gap-4">
+                <RadialGauge Fraction="WorstFraction" Stroke="@WorstStroke" Size="196">
+                    <span class="text-[28px] leading-none font-medium tabular-nums tracking-tight">@(_worst is null ? "—" : PulseFormat.Ms(_worst.InFlightAgeMs))</span>
+                    <span class="text-[10.5px] uppercase tracking-[0.09em] text-muted mt-2">oldest in flight</span>
+                </RadialGauge>
+                <div class="text-center min-w-0 w-full">
+                    <div class="text-[12px] font-mono text-ink truncate">@(_worst?.Queue ?? "—")</div>
+                    <div class="text-[11px] text-muted mt-0.5 truncate">@(_worst?.Consumer ?? "")</div>
+                </div>
+            </div>
+            <div class="p-4 flex flex-col gap-2 max-h-[320px] overflow-y-auto">
+                @foreach (var q in InFlightBars)
+                {
+                    var crit = q.InFlightAgeMs > WedgeThresholdMs;
+                    var warn = !crit && q.InFlightAgeMs > WedgeThresholdMs / 3;
+                    var barCls = "absolute inset-y-0 left-0 rounded-full " + (crit ? "bg-crit" : warn ? "bg-warn" : "bg-ok");
+                    var valCls = "text-[12px] font-mono tabular-nums text-right " + (crit ? "text-crit" : warn ? "text-warn" : "text-muted");
+                    <div class="grid grid-cols-[minmax(200px,1fr)_1fr_78px] items-center gap-3">
+                        <div class="min-w-0">
+                            <div class="text-[12px] font-mono truncate">@q.Queue</div>
+                            <div class="text-[11px] text-muted truncate">@q.Consumer</div>
+                        </div>
+                        <div class="relative h-[10px] rounded-full bg-surface2 overflow-hidden">
+                            <div class="@barCls" style="width: @Pct(q.InFlightAgeMs)%"></div>
+                            <div class="absolute top-0 bottom-0 w-px bg-warn opacity-70" style="left: @MarkPct%"></div>
+                        </div>
+                        <span class="@valCls">@PulseFormat.Ms(q.InFlightAgeMs)</span>
+                    </div>
+                }
+            </div>
+        </div>
+    </section>
+
+    @* ---- Endpoints & queues ---- *@
+    <section class="rounded-lg bg-surface border border-line overflow-hidden flex-1 min-h-0 flex flex-col">
+        <div class="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-line shrink-0">
+            <h2 class="text-[14px] font-medium m-0">Endpoints &amp; queues</h2>
+            <span class="text-[11px] text-muted tabular-nums">@Rows.Count of @Queues.Count</span>
+            <div class="flex-1"></div>
+            <input type="text" value="@_search" @oninput="e => _search = e.Value?.ToString() ?? string.Empty"
+                   placeholder="filter endpoint, queue, consumer…"
+                   class="h-8 w-[260px] px-3 rounded-md bg-bg border border-line text-[12px] font-mono text-ink placeholder:text-muted focus-visible:border-accent" />
+            <div class="flex items-center gap-0.5 p-0.5 rounded-md bg-bg border border-line">
+                @foreach (var f in StatusFilters)
+                {
+                    <button type="button" @onclick="() => _status = f.Key"
+                            class="@("px-2 h-6 rounded text-[11px] flex items-center transition-colors " + (_status == f.Key ? "bg-accentSoft text-accent" : "text-muted hover:text-ink"))">
+                        @f.Label<span class="opacity-60 tabular-nums"> @f.Count</span>
+                    </button>
+                }
+            </div>
+        </div>
+
+        <div class="grid grid-cols-[minmax(250px,2fr)_66px_86px_128px_86px_78px_70px_120px] gap-3 px-4 h-9 items-center border-b border-line bg-surface2 text-[10px] uppercase tracking-[0.09em] text-muted shrink-0">
+            @foreach (var c in Columns)
+            {
+                <button type="button" @onclick="() => Sort(c.Key)"
+                        class="@("flex items-center gap-1 uppercase tracking-[0.09em] hover:text-ink transition-colors " + (c.Align) + (_sortKey == c.Key ? " text-ink" : ""))">
+                    @c.Label<span class="text-accent">@(_sortKey == c.Key ? (_sortAsc ? " ↑" : " ↓") : "")</span>
+                </button>
+            }
+        </div>
+
+        <div class="flex-1 min-h-0 overflow-y-auto">
+            @foreach (var q in Rows)
+            {
+                <div class="grid grid-cols-[minmax(250px,2fr)_66px_86px_128px_86px_78px_70px_120px] gap-3 px-4 py-2.5 items-center border-b border-line hover:bg-surface2 transition-colors">
+                    <div class="min-w-0 flex items-center gap-2.5">
+                        <span class="@("w-1.5 h-1.5 rounded-full shrink-0 " + DotCls(q.Status))"></span>
+                        <div class="min-w-0">
+                            <div class="text-[12.5px] font-mono truncate">@q.Queue</div>
+                            <div class="text-[11px] text-muted truncate">@q.Endpoint · @q.Consumer</div>
+                        </div>
+                    </div>
+                    <span class="text-[12px] text-muted tabular-nums text-right font-mono">@q.Prefetch</span>
+                    <span class="text-[12.5px] tabular-nums text-right font-mono">@PulseFormat.Rate(q.PublishRate)</span>
+                    <div class="flex items-center gap-2 justify-end">
+                        <Sparkline Values="q.ConsumeSeries" Width="72" Height="20" StrokeWidth="1.2" Opacity="0.85" Class="w-[72px] h-[20px]" />
+                        <span class="text-[12.5px] tabular-nums font-mono">@PulseFormat.Rate(q.ConsumeRate)</span>
+                    </div>
+                    <span class="@("text-[12.5px] tabular-nums text-right font-mono " + (q.Depth > 5000 ? "text-warn" : "text-muted"))">@PulseFormat.Int(q.Depth)</span>
+                    <span class="text-[12.5px] tabular-nums text-right font-mono text-muted">@q.HandlerP95Ms<span class="text-muted">ms</span></span>
+                    <span class="@("text-[12.5px] tabular-nums text-right font-mono " + (q.ErrorPercent > 5 ? "text-crit" : q.ErrorPercent > 1 ? "text-warn" : "text-muted"))">@PulseFormat.ErrorPercent(q.ErrorPercent)</span>
+                    <span class="@("text-[12.5px] tabular-nums text-right font-mono " + InflightCls(q.InFlightAgeMs))">@PulseFormat.Ms(q.InFlightAgeMs)</span>
+                </div>
+            }
+            @if (Rows.Count == 0)
+            {
+                <div class="px-4 py-8 text-center text-[12.5px] text-muted">
+                    @(Queues.Count == 0 ? "No registered consumers, or the admin API is unavailable." : "No queues match the current filter.")
+                </div>
+            }
+        </div>
+    </section>
+</main>
+
+@code {
+    private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
+
+    [Parameter] public IReadOnlyList<QueueStat> Queues { get; set; } = Array.Empty<QueueStat>();
+    [Parameter] public PubSubKpis? Kpis { get; set; }
+    [Parameter] public long WedgeThresholdMs { get; set; } = 90_000;
+
+    private string _search = string.Empty;
+    private string _status = "all";
+    private string _sortKey = "inflight";
+    private bool _sortAsc;
+
+    private QueueStat? _worst;
+
+    private double WorstFraction => _worst is null ? 0 : Math.Min(1, (double)_worst.InFlightAgeMs / (WedgeThresholdMs * 8));
+    private string WorstStroke => _worst is null ? "var(--c-ok)"
+        : _worst.InFlightAgeMs > WedgeThresholdMs ? "var(--c-crit)"
+        : _worst.InFlightAgeMs > WedgeThresholdMs / 3 ? "var(--c-warn)" : "var(--c-ok)";
+
+    private long MaxAge => Math.Max(1, Queues.Count == 0 ? 1 : Queues.Max(q => q.InFlightAgeMs));
+    private string MarkPct => ((double)WedgeThresholdMs / MaxAge * 100).ToString("0.#", Inv);
+    private string Pct(long inflight) => Math.Max(1.5, (double)inflight / MaxAge * 100).ToString("0.#", Inv);
+
+    private IReadOnlyList<QueueStat> InFlightBars =>
+        Queues.OrderByDescending(q => q.InFlightAgeMs).Take(9).ToArray();
+
+    protected override void OnParametersSet()
+        => _worst = Queues.Count == 0 ? null : Queues.OrderByDescending(q => q.InFlightAgeMs).First();
+
+    private record Col(string Key, string Label, string Align);
+    private static readonly Col[] Columns =
+    [
+        new("queue", "Queue · endpoint · consumer", ""),
+        new("prefetch", "Prefetch", "justify-end"),
+        new("pub", "Publish/s", "justify-end"),
+        new("con", "Consume/s", "justify-end"),
+        new("depth", "Depth", "justify-end"),
+        new("p95", "p95", "justify-end"),
+        new("err", "Err %", "justify-end"),
+        new("inflight", "In-flight age", "justify-end"),
+    ];
+
+    private record Filter(string Key, string Label, int Count);
+    private IReadOnlyList<Filter> StatusFilters =>
+    [
+        new("all", "all", Queues.Count),
+        new("critical", "critical", Queues.Count(q => q.Status == QueueHealth.Critical)),
+        new("warning", "warning", Queues.Count(q => q.Status == QueueHealth.Warning)),
+        new("healthy", "healthy", Queues.Count(q => q.Status == QueueHealth.Healthy)),
+    ];
+
+    private void Sort(string key)
+    {
+        if (_sortKey == key) _sortAsc = !_sortAsc;
+        else { _sortKey = key; _sortAsc = false; }
+    }
+
+    private IReadOnlyList<QueueStat> Rows
+    {
+        get
+        {
+            var term = _search.Trim();
+            IEnumerable<QueueStat> q = Queues;
+            if (_status != "all")
+                q = q.Where(x => string.Equals(x.Status.ToString(), _status, StringComparison.OrdinalIgnoreCase));
+            if (term.Length > 0)
+                q = q.Where(x => (x.Queue + " " + x.Endpoint + " " + x.Consumer)
+                    .Contains(term, StringComparison.OrdinalIgnoreCase));
+
+            Func<QueueStat, IComparable> key = _sortKey switch
+            {
+                "queue" => x => x.Queue,
+                "prefetch" => x => x.Prefetch,
+                "pub" => x => x.PublishRate,
+                "con" => x => x.ConsumeRate,
+                "depth" => x => x.Depth,
+                "p95" => x => x.HandlerP95Ms,
+                "err" => x => x.ErrorPercent,
+                _ => x => x.InFlightAgeMs,
+            };
+            q = _sortAsc ? q.OrderBy(key) : q.OrderByDescending(key);
+            return q.ToArray();
+        }
+    }
+
+    private static string DotCls(QueueHealth h) => h switch
+    {
+        QueueHealth.Critical => "bg-crit",
+        QueueHealth.Warning => "bg-warn",
+        _ => "bg-ok",
+    };
+
+    private string InflightCls(long ms) =>
+        ms > WedgeThresholdMs ? "text-crit" : ms > WedgeThresholdMs / 3 ? "text-warn" : "text-muted";
+
+    private string KpiDelta(PubSubKpi k) => (k.DeltaPercent >= 0 ? "+" : "") + k.DeltaPercent.ToString("0.0", Inv) + "%";
+
+    private string KpiValue(PubSubKpi k) => k.Metric switch
+    {
+        "pubsub.consumer.handler_ms" => PulseFormat.Ms((long)k.Value),
+        "pubsub.dlq.publish.count" => k.Value.ToString("0.0", Inv),
+        _ => PulseFormat.Rate(k.Value),
+    };
+}

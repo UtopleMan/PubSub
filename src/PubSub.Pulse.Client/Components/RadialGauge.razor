@@ -1,0 +1,33 @@
+@* Radial progress ring used for the worst/oldest in-flight age. *@
+<div class="relative shrink-0" style="width:@(Size)px;height:@(Size)px">
+    <svg width="@Size" height="@Size" viewBox="0 0 @Size @Size">
+        <circle cx="@C" cy="@C" r="@R" fill="none" stroke="var(--c-line)" stroke-width="8"></circle>
+        <circle cx="@C" cy="@C" r="@R" fill="none" stroke="@Stroke" stroke-width="8" stroke-linecap="round"
+                stroke-dasharray="@Dash" transform="rotate(-90 @C @C)"></circle>
+    </svg>
+    <div class="absolute inset-0 flex flex-col items-center justify-center px-5">
+        @ChildContent
+    </div>
+</div>
+
+@code {
+    private static readonly System.Globalization.CultureInfo Inv = System.Globalization.CultureInfo.InvariantCulture;
+
+    [Parameter] public double Fraction { get; set; }
+    [Parameter] public string Stroke { get; set; } = "var(--c-ok)";
+    [Parameter] public int Size { get; set; } = 196;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private double C => Size / 2.0;
+    private double R => Size / 2.0 - 12;
+
+    private string Dash
+    {
+        get
+        {
+            var circ = 2 * Math.PI * R;
+            var f = Math.Clamp(Fraction, 0, 1);
+            return $"{(f * circ).ToString("0.#", Inv)} {circ.ToString("0.#", Inv)}";
+        }
+    }
+}

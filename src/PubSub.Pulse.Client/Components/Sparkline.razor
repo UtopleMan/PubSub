@@ -1,0 +1,21 @@
+@* SVG sparkline (optional area fill) over a value series. *@
+<svg viewBox="0 0 @Width.ToString(Inv) @Height.ToString(Inv)" preserveAspectRatio="none" class="@Class">
+    @if (Area)
+    {
+        <path d="@PulseFormat.SparkArea(Values, Width, Height)" fill="var(--c-accent)" opacity="0.13"></path>
+    }
+    <path d="@PulseFormat.Spark(Values, Width, Height)" fill="none" stroke="var(--c-accent)"
+          stroke-width="@StrokeWidth.ToString(Inv)" vector-effect="non-scaling-stroke" opacity="@Opacity.ToString(Inv)"></path>
+</svg>
+
+@code {
+    private static readonly System.Globalization.CultureInfo Inv = System.Globalization.CultureInfo.InvariantCulture;
+
+    [Parameter] public IReadOnlyList<double> Values { get; set; } = Array.Empty<double>();
+    [Parameter] public double Width { get; set; } = 160;
+    [Parameter] public double Height { get; set; } = 30;
+    [Parameter] public double StrokeWidth { get; set; } = 1.4;
+    [Parameter] public double Opacity { get; set; } = 1;
+    [Parameter] public bool Area { get; set; }
+    [Parameter] public string? Class { get; set; }
+}

@@ -29,6 +29,23 @@ public class PublicSurfaceTests
             "PubSub.PubSubDispatcherRegistry",
             "PubSub.ReflectionPubSubDispatcher`1",
             "PubSub.IRoutingKeyProvider",
+            "PubSub.Admin.IPubSubAdmin",
+            "PubSub.Admin.MessagingInstallation",
+            "PubSub.Admin.QueueHealth",
+            "PubSub.Admin.QueueStat",
+            "PubSub.Admin.PubSubKpi",
+            "PubSub.Admin.PubSubKpis",
+            "PubSub.Admin.ExchangeInfo",
+            "PubSub.Admin.TopicBinding",
+            "PubSub.Admin.TopologySnapshot",
+            "PubSub.Admin.FailedMessageHeader",
+            "PubSub.Admin.FailedMessage",
+            "PubSub.Admin.FailedQuery",
+            "PubSub.Admin.ReplayRequest",
+            "PubSub.Admin.ReplayResult",
+            "PubSub.Admin.DeleteRequest",
+            "PubSub.Admin.DeleteResult",
+            "PubSub.Admin.PubSubAdminJsonContext",
         };
 
         var actual = typeof(IPublish<>).Assembly
@@ -78,5 +95,28 @@ public class PublicSurfaceTests
         t.IsGenericTypeDefinition.ShouldBeTrue();
         t.GetMethods().Length.ShouldBe(1);
         t.GetMethods()[0].Name.ShouldBe("Handle");
+    }
+
+    [Fact]
+    public void IPubSubAdmin_LivesInAdminNamespace_WithSevenMembers()
+    {
+        var t = typeof(Admin.IPubSubAdmin);
+        t.Namespace.ShouldBe("PubSub.Admin");
+        t.IsInterface.ShouldBeTrue();
+        t.GetMethods().Length.ShouldBe(7);
+    }
+
+    [Fact]
+    public void AdminDtos_AreAllInAdminNamespace()
+    {
+        var adminTypes = typeof(IPublish<>).Assembly
+            .GetExportedTypes()
+            .Where(t => t.Namespace == "PubSub.Admin")
+            .ToArray();
+
+        adminTypes.ShouldContain(typeof(Admin.QueueStat));
+        adminTypes.ShouldContain(typeof(Admin.FailedMessage));
+        adminTypes.ShouldContain(typeof(Admin.PubSubAdminJsonContext));
+        adminTypes.Length.ShouldBe(17);
     }
 }

@@ -68,6 +68,39 @@ All four live in the shared `PubSub` package. A future `PubSub.Kafka` implementa
 | Metrics | `pubsub.consumer.in_flight_age_ms` (observable gauge), `pubsub.publish.count`, `pubsub.consume.count`, `pubsub.dlq.publish.count` (counters). |
 | Tracing | Activity source `PubSub.RabbitMQ`. Publish spans inject `traceparent`/`tracestate` into headers; consume spans extract them and continue the trace. |
 
+## Monitoring console (`PubSub.Pulse`)
+
+`PubSub.Pulse` is a self-hosted Blazor WebAssembly console that shows live statistics for a
+PubSub installation — publish/consume/DLQ rates, per-queue depth and in-flight age, handler
+p95, and the contents of every `.error` queue with one-click replay/delete. The whole WASM app
+is embedded in the `PubSub.Pulse` assembly, so there is nothing extra to deploy.
+
+```csharp
+builder.Services.AddPubSubRabbitMq(new PubSubRabbitMqOptions { ConnectionString = "amqp://…" }, b =>
+{
+    b.Publish<OrderPlaced>();
+    b.Subscribe<OrderPlaced, OrderPlacedConsumer>();
+});
+
+builder.Services.AddPubSubRabbitMqAdmin(o => o.ServiceName = "Shop.Api"); // exposes IPubSubAdmin
+builder.Services.AddPubSubPulse();                                        // console options + JSON
+
+var app = builder.Build();
+app.UsePubSubPulse("/pulse");                                            // mount the console
+app.Run();
+```
+
+Browse to `/pulse`. Mount it behind your own auth if the stats should not be public.
+
+- **No management plugin required.** Depth and consumer counts come from AMQP passive declares,
+  failed messages from peeking the `.error` queues, and rates/p95/in-flight from the library's
+  own in-process meters (so the rates reflect *this* process).
+- **Vendor-neutral.** The console talks to `IPubSubAdmin` (in the core `PubSub` package). The
+  RabbitMQ implementation ships in `PubSub.RabbitMQ`; a future backend can drive the same UI.
+- **Runnable sample.** `samples/PubSub.Pulse.Sample` wires the above with demo traffic (incl. a
+  deliberately flaky consumer). Start RabbitMQ with its `docker-compose.yml`, then
+  `dotnet run --project samples/PubSub.Pulse.Sample` and open `http://localhost:5080/pulse`.
+
 ## Error queue + replay playbook
 
 Each consumer registration auto-declares a paired error queue: main queue `{exchange}.{routing-key}` and error queue `{exchange}.{routing-key}.error`. When `ISubscribeTo<T>.Handle` throws, the library publishes the original body to `phoenix.dlx` with the original routing-key (so the broker routes it to *that consumer's* error queue, not a shared bucket), and attaches these headers:

@@ -20,6 +20,10 @@ internal static class PubSubDiagnostics
     public static readonly Counter<long> DlqPublishCount =
         Meter.CreateCounter<long>("pubsub.dlq.publish.count", unit: "{message}");
 
+    public static readonly Histogram<long> HandlerMs =
+        Meter.CreateHistogram<long>("pubsub.consumer.handler_ms", unit: "ms",
+            description: "Wall-clock ms spent in ISubscribeTo<T>.Handle per delivery, faceted by queue.");
+
     private static readonly List<IInFlightTracker> Trackers = new();
     private static readonly Lock TrackersLock = new();
     private static bool _gaugeRegistered;

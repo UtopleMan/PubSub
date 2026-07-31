@@ -1,0 +1,135 @@
+@page "/"
+@implements IDisposable
+@inject PulseApiClient Api
+@inject IJSRuntime Js
+
+<PageTitle>@(_options?.Title ?? "PubSub Pulse")</PageTitle>
+
+<div class="h-screen flex flex-col overflow-hidden bg-bg text-ink font-sans">
+
+    <header class="shrink-0 z-30 h-14 px-5 flex items-center gap-6 bg-surface border-b border-line">
+        <div class="flex items-center gap-2.5 shrink-0 text-accent">
+            <svg width="25" height="21" viewBox="0 0 24 20" fill="none" aria-hidden="true">
+                <rect x="1" y="7" width="6" height="6" rx="1.4" fill="currentColor"></rect>
+                <path d="M7.6 10h4.2M11.8 10 17 3.6M11.8 10 17 16.4" stroke="currentColor" stroke-width="1.5" opacity="0.55"></path>
+                <circle cx="19.4" cy="3.2" r="2.4" stroke="currentColor" stroke-width="1.6"></circle>
+                <circle cx="19.4" cy="10" r="2.4" stroke="currentColor" stroke-width="1.6"></circle>
+                <circle cx="19.4" cy="16.8" r="2.4" stroke="currentColor" stroke-width="1.6"></circle>
+            </svg>
+            <span class="text-[15px] font-medium tracking-tight text-ink">@(_options?.Title ?? "PubSub")</span>
+        </div>
+
+        <nav class="flex items-center gap-0.5">
+            <button type="button" @onclick="() => _tab = Tab.Monitoring" class="@TabCls(Tab.Monitoring)">Monitoring</button>
+            <button type="button" @onclick="() => _tab = Tab.Failed" class="@TabCls(Tab.Failed)">
+                Failed messages
+                <span class="@(FailedBadge > 0 ? "px-1.5 h-[17px] rounded-full bg-crit text-bg text-[10.5px] font-medium flex items-center tabular-nums" : "hidden")">@FailedBadge</span>
+            </button>
+        </nav>
+
+        <div class="flex-1"></div>
+
+        <div class="hidden lg:flex items-center gap-2 text-[12px] text-muted font-mono">
+            <span class="w-1.5 h-1.5 rounded-full @(_install?.Connected == true ? "bg-ok" : "bg-crit")"></span>
+            <span>@(_install?.Endpoint ?? "—")</span>
+            <span class="text-line">/</span>
+            <span>@(_install?.Environment ?? "")</span>
+        </div>
+
+        <button type="button" @onclick="ToggleThemeAsync"
+                class="h-8 px-3 rounded-md border border-line text-[12px] text-muted hover:text-ink hover:border-accent transition-colors">
+            @(_light ? "Dark" : "Light")
+        </button>
+    </header>
+
+    @if (_tab == Tab.Monitoring)
+    {
+        <MonitoringTab Queues="_queues" Kpis="_kpis" WedgeThresholdMs="_wedgeThresholdMs" />
+    }
+    else
+    {
+        <FailedTab Failed="_failed" OnChanged="RefreshNowAsync" @ref="_failedTab" />
+    }
+</div>
+
+@code {
+    private enum Tab { Monitoring, Failed }
+
+    private const string TabBase = "h-8 px-3 rounded-md text-[13px] flex items-center gap-1.5 transition-colors ";
+
+    private Tab _tab = Tab.Monitoring;
+    private bool _light;
+    private long _wedgeThresholdMs = 90_000;
+
+    private PulseClientOptions? _options;
+    private MessagingInstallation? _install;
+    private IReadOnlyList<QueueStat> _queues = Array.Empty<QueueStat>();
+    private PubSubKpis? _kpis;
+    private TopologySnapshot? _topology;
+    private IReadOnlyList<FailedMessage> _failed = Array.Empty<FailedMessage>();
+
+    private FailedTab? _failedTab;
+    private CancellationTokenSource? _cts;
+
+    private int FailedBadge => _topology?.Topics.Sum(t => t.FailedCount) ?? 0;
+
+    private string TabCls(Tab t) => TabBase + (_tab == t
+        ? "bg-accentSoft text-accent"
+        : "text-muted hover:text-ink hover:bg-surface2");
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _options = await Api.GetOptionsAsync();
+            if (_options is not null) _wedgeThresholdMs = _options.WedgeThresholdMs;
+        }
+        catch { /* options are best-effort */ }
+
+        _cts = new CancellationTokenSource();
+        _ = RunPollLoopAsync(_cts.Token);
+    }
+
+    private async Task RunPollLoopAsync(CancellationToken ct)
+    {
+        var interval = TimeSpan.FromMilliseconds(Math.Max(500, _options?.PollIntervalMs ?? 3000));
+        // Immediate first fetch, then on the interval.
+        await PollAsync(ct);
+        using var timer = new PeriodicTimer(interval);
+        try
+        {
+            while (await timer.WaitForNextTickAsync(ct))
+                await PollAsync(ct);
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    private async Task PollAsync(CancellationToken ct)
+    {
+        try
+        {
+            _install = await Api.GetInstallationAsync(ct);
+            _queues = await Api.GetQueuesAsync(ct) ?? _queues;
+            _kpis = await Api.GetKpisAsync(ct);
+            _topology = await Api.GetTopologyAsync(ct);
+            if (_tab == Tab.Failed)
+                _failed = await Api.GetFailedAsync(ct: ct) ?? _failed;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (OperationCanceledException) { }
+        catch { /* transient fetch error — keep last good data */ }
+    }
+
+    private async Task RefreshNowAsync()
+    {
+        if (_cts is not null) await PollAsync(_cts.Token);
+    }
+
+    private async Task ToggleThemeAsync()
+    {
+        _light = !_light;
+        await Js.InvokeVoidAsync("document.documentElement.setAttribute", "class", _light ? "light" : "dark");
+    }
+
+    public void Dispose() => _cts?.Cancel();
+}

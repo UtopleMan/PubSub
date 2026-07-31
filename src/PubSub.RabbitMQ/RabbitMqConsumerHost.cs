@@ -25,6 +25,7 @@ internal sealed class RabbitMqConsumerHost<T, TConsumer> : IHostedService, IInFl
     private readonly ILogger<RabbitMqConsumerHost<T, TConsumer>> _logger;
     private readonly string _queueName;
     private readonly string _errorQueueName;
+    private readonly KeyValuePair<string, object?> _queueTag;
     private readonly ConcurrentDictionary<ulong, long> _inFlightStartedAtMs = new();
     private IChannel? _channel;
     private IChannel? _dlxChannel;
@@ -46,6 +47,7 @@ internal sealed class RabbitMqConsumerHost<T, TConsumer> : IHostedService, IInFl
         _logger = logger;
         _queueName = PubSubQueueNaming.ResolveQueueName(topic, typeof(TConsumer));
         _errorQueueName = $"{_queueName}.error";
+        _queueTag = new KeyValuePair<string, object?>("queue", _queueName);
         PubSubDiagnostics.RegisterTracker(this);
     }
 
@@ -142,6 +144,7 @@ internal sealed class RabbitMqConsumerHost<T, TConsumer> : IHostedService, IInFl
             using var scope = _services.CreateScope();
             var consumer = scope.ServiceProvider.GetRequiredService<TConsumer>();
             await Dispatcher.InvokeAsync(consumer, message, ea.CancellationToken).ConfigureAwait(false);
+            PubSubDiagnostics.HandlerMs.Record(Environment.TickCount64 - startedMs, _queueTag);
 
             await channel.BasicAckAsync(ea.DeliveryTag, multiple: false, ea.CancellationToken).ConfigureAwait(false);
             PubSubDiagnostics.ConsumeCount.Add(1,
@@ -150,6 +153,7 @@ internal sealed class RabbitMqConsumerHost<T, TConsumer> : IHostedService, IInFl
         }
         catch (Exception ex)
         {
+            PubSubDiagnostics.HandlerMs.Record(Environment.TickCount64 - startedMs, _queueTag);
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             _logger.LogError(ex, "Handler {Handler} failed for delivery {DeliveryTag}; routing to DLX",
                 typeof(TConsumer).FullName, ea.DeliveryTag);

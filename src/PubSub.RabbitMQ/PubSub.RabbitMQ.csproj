@@ -13,6 +13,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="PubSub.Tests" />
+    <InternalsVisibleTo Include="PubSub.RabbitMQ.IntegrationTests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\PubSub\PubSub.csproj" />
     <ProjectReference Include="..\PubSub.SourceGenerators\PubSub.SourceGenerators.csproj"
                       OutputItemType="Analyzer"

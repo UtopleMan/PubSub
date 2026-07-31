@@ -1,0 +1,52 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>PubSub.Pulse</RootNamespace>
+    <AssemblyName>PubSub.Pulse</AssemblyName>
+
+    <IsPackable>true</IsPackable>
+    <PackageId>PubSub.Pulse</PackageId>
+    <Description>Embedded Blazor WebAssembly monitoring console for PubSub. Mount with app.UsePubSubPulse("/pulse").</Description>
+
+    <!-- The Blazor WASM client is published here, then embedded into this assembly. -->
+    <PulseClientProject>$(MSBuildThisFileDirectory)..\PubSub.Pulse.Client\PubSub.Pulse.Client.csproj</PulseClientProject>
+    <PulseClientPublishDir>$(MSBuildThisFileDirectory)obj\pulseclient\</PulseClientPublishDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\PubSub\PubSub.csproj" />
+  </ItemGroup>
+
+  <!--
+    Publish the WASM client and embed its deployable wwwroot (the StaticWebAssetBasePath="pulse"
+    subtree). Each file's LogicalName is its forward-slash relative path (e.g.
+    "_framework/blazor.webassembly.<hash>.js"), so the runtime serves it by exact path — no name
+    mangling, no manifest xml. Injected at AssignTargetPaths so the compiler embeds them.
+    Compressed variants are excluded (we serve uncompressed).
+  -->
+  <Target Name="PublishAndEmbedPulseClient"
+          BeforeTargets="AssignTargetPaths">
+    <!--
+      Publish writes into a fixed PublishDir and never deletes what it finds there. Blazor assets
+      are content-fingerprinted, so across builds old dotnet.<hash>.js / index.html / import maps
+      pile up and the glob below embeds an inconsistent mix — the WASM runtime then can't resolve a
+      matching fingerprint and the console fails to boot. Clean first so we embed exactly one build.
+    -->
+    <RemoveDir Directories="$(PulseClientPublishDir)" />
+    <MSBuild Projects="$(PulseClientProject)"
+             Targets="Restore;Publish"
+             Properties="Configuration=$(Configuration);PublishDir=$(PulseClientPublishDir)" />
+    <ItemGroup>
+      <_PulseAsset Include="$(PulseClientPublishDir)wwwroot\pulse\**\*"
+                   Exclude="$(PulseClientPublishDir)wwwroot\pulse\**\*.gz;$(PulseClientPublishDir)wwwroot\pulse\**\*.br" />
+      <EmbeddedResource Include="@(_PulseAsset)">
+        <LogicalName>%(RecursiveDir)%(Filename)%(Extension)</LogicalName>
+      </EmbeddedResource>
+    </ItemGroup>
+  </Target>
+
+</Project>

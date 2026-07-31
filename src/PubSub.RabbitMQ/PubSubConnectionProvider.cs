@@ -71,6 +71,9 @@ public sealed class PubSubConnectionProvider : IAsyncDisposable
         }
     }
 
+    /// <summary>True when a broker connection is currently open (does not attempt to open one).</summary>
+    internal bool IsConnected => _connection is { IsOpen: true };
+
     internal IConnection RequireOpenConnection()
         => _connection is { IsOpen: true } c
             ? c

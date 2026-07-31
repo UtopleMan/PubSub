@@ -1,0 +1,248 @@
+@inject PulseApiClient Api
+@inject IJSRuntime Js
+@* Failed messages: exception-type rail + table with expand, replay/delete, copy shovel. *@
+<main class="flex-1 min-h-0 overflow-hidden p-5 flex flex-col gap-4">
+    <div class="grid md:grid-cols-[264px_1fr] gap-4 flex-1 min-h-0">
+
+        @* ---- Exception-type rail ---- *@
+        <section class="rounded-lg bg-surface border border-line overflow-hidden flex flex-col min-h-0">
+            <div class="px-4 h-12 flex items-center border-b border-line shrink-0">
+                <h2 class="text-[14px] font-medium m-0">Exception type</h2>
+            </div>
+            <div class="p-2 flex flex-col gap-0.5 flex-1 min-h-0 overflow-y-auto">
+                @foreach (var g in ExGroups)
+                {
+                    var parts = g.Type == "all" ? Array.Empty<string>() : g.Type.Split('.');
+                    var shortName = g.Type == "all" ? "All exceptions" : parts[^1];
+                    var ns = g.Type == "all" ? "every error queue" : string.Join('.', parts[..^1]);
+                    <button type="button" @onclick="() => Select(g.Type)"
+                            class="@("w-full flex items-center gap-2 rounded-md px-3 py-2 transition-colors " + (_exType == g.Type ? "bg-accentSoft text-accent" : "hover:bg-surface2"))">
+                        <span class="min-w-0 flex-1 text-left">
+                            <span class="block text-[12px] font-mono truncate">@shortName</span>
+                            <span class="block text-[11px] text-muted truncate">@ns</span>
+                        </span>
+                        <span class="text-[12px] tabular-nums text-muted">@g.Count</span>
+                    </button>
+                }
+            </div>
+        </section>
+
+        @* ---- Failed messages table ---- *@
+        <section class="rounded-lg bg-surface border border-line overflow-hidden flex flex-col min-h-0">
+            <div class="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-line shrink-0">
+                <h2 class="text-[14px] font-medium m-0">Failed messages</h2>
+                <span class="text-[11px] text-muted tabular-nums">@Rows.Count of @Failed.Count</span>
+                <div class="flex-1"></div>
+                <input type="text" value="@_search" @oninput="e => _search = e.Value?.ToString() ?? string.Empty"
+                       placeholder="error queue, exception, pod…"
+                       class="h-8 w-[240px] px-3 rounded-md bg-bg border border-line text-[12px] font-mono text-ink placeholder:text-muted focus-visible:border-accent" />
+                <button type="button" @onclick="ReplayAllAsync"
+                        class="h-8 px-3 rounded-md border border-accent text-[12px] text-accent hover:bg-accentSoft transition-colors">Replay all</button>
+            </div>
+
+            @if (_sel.Count > 0)
+            {
+                <div class="flex flex-wrap items-center gap-3 px-4 py-2.5 bg-accentSoft border-b border-line shrink-0">
+                    <span class="text-[12px] tabular-nums">@_sel.Count selected</span>
+                    <div class="flex-1"></div>
+                    <button type="button" @onclick="ReplaySelectedAsync" class="h-8 px-3 rounded-md border border-accent text-[12px] text-accent hover:bg-bg transition-colors">Replay selected</button>
+                    <button type="button" @onclick="() => _confirmDelete = true" class="h-8 px-3 rounded-md border border-line text-[12px] text-crit hover:border-crit transition-colors">Delete</button>
+                    <button type="button" @onclick="() => _sel.Clear()" class="h-8 px-2 text-[12px] text-muted hover:text-ink">Clear</button>
+                </div>
+            }
+
+            <div class="grid grid-cols-[32px_100px_minmax(230px,1.5fr)_minmax(230px,1.6fr)_100px_58px_28px] gap-3 px-4 h-9 items-center border-b border-line bg-surface2 text-[10px] uppercase tracking-[0.09em] text-muted shrink-0">
+                <button type="button" @onclick="ToggleAll" class="@Box(AllSelected)"></button>
+                <span>Last seen</span><span>Error queue · message id</span><span>Exception</span>
+                <span class="text-right">Handler ms</span><span class="text-right">Seen</span><span></span>
+            </div>
+
+            <div class="flex-1 min-h-0 overflow-y-auto">
+                @foreach (var f in Rows)
+                {
+                    <div class="border-b border-line">
+                        <div class="grid grid-cols-[32px_100px_minmax(230px,1.5fr)_minmax(230px,1.6fr)_100px_58px_28px] gap-3 px-4 py-2.5 items-center hover:bg-surface2 transition-colors">
+                            <button type="button" @onclick="() => Toggle(f.Id)" class="@Box(_sel.Contains(f.Id))"></button>
+                            <span class="text-[12px] font-mono text-muted">@f.LastSeen.ToString("HH:mm:ss")</span>
+                            <div class="min-w-0">
+                                <div class="text-[12px] font-mono truncate">@f.ErrorQueue</div>
+                                <div class="text-[11px] font-mono text-muted truncate">@f.Id</div>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="text-[12px] font-mono text-crit truncate">@ShortEx(f.ExceptionType)</div>
+                                <div class="text-[11px] text-muted truncate">@f.ExceptionMessage</div>
+                            </div>
+                            <span class="text-[12px] font-mono tabular-nums text-right text-muted">@f.HandlerElapsedMs</span>
+                            <span class="text-[12px] tabular-nums text-right text-muted">@f.Count</span>
+                            <button type="button" @onclick="() => _expanded = _expanded == f.Id ? null : f.Id" class="text-[12px] text-muted hover:text-accent">@(_expanded == f.Id ? "▾" : "▸")</button>
+                        </div>
+                        @if (_expanded == f.Id)
+                        {
+                            <div class="px-4 pb-4 pt-1 bg-bg grid lg:grid-cols-2 gap-4">
+                                <div class="flex flex-col gap-2">
+                                    <div class="text-[10px] uppercase tracking-[0.09em] text-muted">Error headers</div>
+                                    @foreach (var h in f.Headers)
+                                    {
+                                        <div class="grid grid-cols-[200px_1fr] gap-3 py-1 border-b border-line">
+                                            <span class="text-[11.5px] font-mono text-accent">@h.Key</span>
+                                            <span class="text-[11.5px] font-mono text-ink break-all">@h.Value</span>
+                                        </div>
+                                    }
+                                    <div class="text-[10px] uppercase tracking-[0.09em] text-muted mt-2">Replay — one shovel</div>
+                                    <pre class="m-0 p-3 rounded-md bg-surface border border-line text-[11.5px] font-mono text-muted whitespace-pre-wrap break-all">@f.ShovelCommand</pre>
+                                    <div class="flex gap-2">
+                                        <button type="button" @onclick="() => ReplayOneAsync(f)" class="h-8 px-3 rounded-md border border-accent text-[12px] text-accent hover:bg-accentSoft transition-colors">Replay this message</button>
+                                        <button type="button" @onclick="() => CopyAsync(f.ShovelCommand)" class="h-8 px-3 rounded-md border border-line text-[12px] text-muted hover:text-ink hover:border-ink transition-colors">Copy command</button>
+                                    </div>
+                                </div>
+                                <div class="flex flex-col gap-2 min-w-0">
+                                    <div class="text-[10px] uppercase tracking-[0.09em] text-muted">x-stacktrace</div>
+                                    <pre class="m-0 p-3 rounded-md bg-surface border border-line text-[11.5px] font-mono text-muted leading-relaxed overflow-x-auto">@f.StackTrace</pre>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                @if (Rows.Count == 0)
+                {
+                    <div class="px-4 py-8 text-center text-[12.5px] text-muted">No failed messages. 🎉</div>
+                }
+            </div>
+        </section>
+    </div>
+</main>
+
+@if (_confirmDelete)
+{
+    <div class="fixed inset-0 z-40 flex items-center justify-center" style="background: rgba(0,0,0,0.5)">
+        <div class="w-[380px] rounded-lg bg-surface border border-line p-5 shadow-lg flex flex-col gap-3">
+            <div class="text-[14px] font-medium">Delete @_sel.Count message(s)?</div>
+            <div class="text-[12.5px] text-muted">This permanently drops them from their error queues. This cannot be undone.</div>
+            <div class="flex justify-end gap-2 mt-1">
+                <button type="button" @onclick="() => _confirmDelete = false" class="h-8 px-3 rounded-md border border-line text-[12px] text-muted hover:text-ink">Cancel</button>
+                <button type="button" @onclick="DeleteSelectedAsync" class="h-8 px-3 rounded-md border border-crit text-[12px] text-crit hover:bg-crit hover:text-bg transition-colors">Delete</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_toast is not null)
+{
+    <div class="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 px-4 py-2.5 rounded-lg bg-surface border border-accent text-[12.5px] shadow-lg">@_toast</div>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<FailedMessage> Failed { get; set; } = Array.Empty<FailedMessage>();
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private string _search = string.Empty;
+    private string _exType = "all";
+    private readonly HashSet<string> _sel = new(StringComparer.Ordinal);
+    private string? _expanded;
+    private string? _toast;
+    private bool _confirmDelete;
+    private int _toastSeq;
+
+    private record Group(string Type, int Count);
+
+    private IReadOnlyList<Group> ExGroups
+    {
+        get
+        {
+            var groups = Failed.GroupBy(f => f.ExceptionType)
+                .Select(g => new Group(g.Key, g.Count()))
+                .OrderByDescending(g => g.Count)
+                .ToList();
+            groups.Insert(0, new Group("all", Failed.Count));
+            return groups;
+        }
+    }
+
+    private IReadOnlyList<FailedMessage> Rows
+    {
+        get
+        {
+            var term = _search.Trim();
+            IEnumerable<FailedMessage> q = Failed;
+            if (_exType != "all") q = q.Where(f => f.ExceptionType == _exType);
+            if (term.Length > 0)
+                q = q.Where(f => (f.ErrorQueue + " " + f.ExceptionType + " " + f.ExceptionMessage + " " + f.Pod + " " + f.Id)
+                    .Contains(term, StringComparison.OrdinalIgnoreCase));
+            return q.ToArray();
+        }
+    }
+
+    private bool AllSelected => Rows.Count > 0 && Rows.All(f => _sel.Contains(f.Id));
+
+    private void Select(string type) { _exType = type; _sel.Clear(); _expanded = null; }
+    private void Toggle(string id) { if (!_sel.Add(id)) _sel.Remove(id); }
+    private void ToggleAll()
+    {
+        if (AllSelected) foreach (var f in Rows) _sel.Remove(f.Id);
+        else foreach (var f in Rows) _sel.Add(f.Id);
+    }
+
+    private async Task ReplayAllAsync()
+    {
+        var total = 0;
+        foreach (var queue in Rows.Select(f => f.ErrorQueue).Distinct(StringComparer.Ordinal))
+            total += (await Api.ReplayAsync(new ReplayRequest(queue, Array.Empty<string>())))?.Replayed ?? 0;
+        await AfterMutation($"Replayed {total}");
+    }
+
+    private async Task ReplaySelectedAsync()
+    {
+        var total = 0;
+        foreach (var g in Rows.Where(f => _sel.Contains(f.Id)).GroupBy(f => f.ErrorQueue, StringComparer.Ordinal))
+            total += (await Api.ReplayAsync(new ReplayRequest(g.Key, g.Select(x => x.Id).ToArray())))?.Replayed ?? 0;
+        await AfterMutation($"Replayed {total}");
+    }
+
+    private async Task ReplayOneAsync(FailedMessage f)
+    {
+        var r = await Api.ReplayAsync(new ReplayRequest(f.ErrorQueue, new[] { f.Id }));
+        await AfterMutation($"Replayed {r?.Replayed ?? 0}");
+    }
+
+    private async Task DeleteSelectedAsync()
+    {
+        var total = 0;
+        foreach (var g in Rows.Where(f => _sel.Contains(f.Id)).GroupBy(f => f.ErrorQueue, StringComparer.Ordinal))
+            total += (await Api.DeleteAsync(new DeleteRequest(g.Key, g.Select(x => x.Id).ToArray())))?.Deleted ?? 0;
+        _confirmDelete = false;
+        await AfterMutation($"Deleted {total}");
+    }
+
+    private async Task AfterMutation(string message)
+    {
+        _sel.Clear();
+        _expanded = null;
+        await Flash(message);
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task CopyAsync(string command)
+    {
+        try { await Js.InvokeVoidAsync("navigator.clipboard.writeText", command); await Flash("Command copied"); }
+        catch { await Flash("Copy failed"); }
+    }
+
+    private async Task Flash(string message)
+    {
+        _toast = message;
+        var seq = ++_toastSeq;
+        StateHasChanged();
+        await Task.Delay(2600);
+        if (seq == _toastSeq) { _toast = null; StateHasChanged(); }
+    }
+
+    private static string ShortEx(string type)
+    {
+        var i = type.LastIndexOf('.');
+        return i >= 0 ? type[(i + 1)..] : type;
+    }
+
+    private static string Box(bool on) =>
+        "w-4 h-4 rounded-[4px] border flex items-center justify-center text-[10px] leading-none transition-colors " +
+        (on ? "bg-accent border-accent text-bg" : "border-line hover:border-accent");
+}

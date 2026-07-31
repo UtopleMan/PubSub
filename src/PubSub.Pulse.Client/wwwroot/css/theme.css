@@ -1,0 +1,28 @@
+/*
+ * Maps the Nocturne palette (--c-* defined in nocturne.css, which flips under .light) onto
+ * Blazor Blueprint's shadcn-style theme variables, so Blueprint components inherit the console
+ * colours. Defined at :root and resolved via the cascaded --c-* values, so it follows the
+ * light/dark toggle automatically. Loaded after blazorblueprint.css so these win.
+ */
+:root {
+  --background: var(--c-bg);
+  --foreground: var(--c-ink);
+  --card: var(--c-surface);
+  --card-foreground: var(--c-ink);
+  --popover: var(--c-surface);
+  --popover-foreground: var(--c-ink);
+  --primary: var(--c-accent);
+  --primary-foreground: var(--c-bg);
+  --secondary: var(--c-surface2);
+  --secondary-foreground: var(--c-ink);
+  --muted: var(--c-surface2);
+  --muted-foreground: var(--c-muted);
+  --accent: var(--c-accent-soft);
+  --accent-foreground: var(--c-accent-ink);
+  --destructive: var(--c-crit);
+  --destructive-foreground: var(--c-ink);
+  --border: var(--c-line);
+  --input: var(--c-line);
+  --ring: var(--c-accent);
+  --radius: 0.875rem;
+}

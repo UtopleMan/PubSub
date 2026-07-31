@@ -4,18 +4,25 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <RootNamespace>PubSub.Tests</RootNamespace>
-    <AssemblyName>PubSub.Tests</AssemblyName>
+    <RootNamespace>PubSub.Pulse.Tests</RootNamespace>
+    <AssemblyName>PubSub.Pulse.Tests</AssemblyName>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\..\src\PubSub\PubSub.csproj" />
-    <ProjectReference Include="..\..\src\PubSub.RabbitMQ\PubSub.RabbitMQ.csproj" />
+    <ProjectReference Include="..\..\src\PubSub.Pulse\PubSub.Pulse.csproj" />
+    <!-- Reference the WASM client for pure formatter unit tests (assembly only, not the app). -->
+    <ProjectReference Include="..\..\src\PubSub.Pulse.Client\PubSub.Pulse.Client.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="10.0.9" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
     <PackageReference Include="Shouldly" Version="4.2.1" />
