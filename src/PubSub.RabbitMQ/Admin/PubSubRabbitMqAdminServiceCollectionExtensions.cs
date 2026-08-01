@@ -1,20 +1,23 @@
+using System.Net.Http.Headers;
+using System.Text;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Extensions.Hosting;
 using PubSub.Admin;
 
-namespace PubSub.RabbitMQ;
+namespace PubSub.RabbitMQ.Admin;
 
 /// <summary>
-/// Registers the RabbitMQ implementation of <see cref="IPubSubAdmin"/> plus the in-process
-/// metrics sampler that feeds the <c>PubSub.Pulse</c> console. Call after
-/// <see cref="PubSubRabbitMqServiceCollectionExtensions.AddPubSubRabbitMq"/>.
+/// Registers the broker-scraping RabbitMQ implementation of <see cref="IPubSubAdmin"/>, which reads
+/// the RabbitMQ Management HTTP API. Requires no consumer registration and does not depend on
+/// <c>AddPubSubRabbitMq</c>, so <c>PubSub.Pulse</c> can run as a standalone ops binary pointed at a
+/// broker.
 /// </summary>
 public static class PubSubRabbitMqAdminServiceCollectionExtensions
 {
     /// <summary>
-    /// Adds <see cref="IPubSubAdmin"/> (RabbitMQ), the metrics sampler (as a hosted service), and
-    /// <see cref="PubSubAdminOptions"/>. Idempotent; safe to call once alongside your PubSub setup.
+    /// Adds <see cref="IPubSubAdmin"/> (Management-API backed), the typed management
+    /// <see cref="HttpClient"/>, and <see cref="ErrorQueueOperations"/>. The management endpoint,
+    /// credentials, vhost, and AMQP connection string are all required and configured explicitly.
     /// </summary>
     public static IServiceCollection AddPubSubRabbitMqAdmin(
         this IServiceCollection services,
@@ -24,12 +27,34 @@ public static class PubSubRabbitMqAdminServiceCollectionExtensions
 
         var options = new PubSubAdminOptions();
         configure?.Invoke(options);
+        Validate(options);
         services.TryAddSingleton(options);
 
-        services.TryAddSingleton<PubSubMetricsSampler>();
-        services.AddHostedService(sp => sp.GetRequiredService<PubSubMetricsSampler>());
-        services.TryAddSingleton<IPubSubAdmin, RabbitMqPubSubAdmin>();
+        services.AddHttpClient<IRabbitMqManagementClient, RabbitMqManagementClient>(http =>
+        {
+            http.BaseAddress = options.ManagementBaseUrl;
+            var raw = $"{options.ManagementUser}:{options.ManagementPassword}";
+            http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+                "Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes(raw)));
+        });
+
+        services.TryAddSingleton<ErrorQueueOperations>();
+        services.TryAddSingleton<IPubSubAdmin, ManagementRabbitMqPubSubAdmin>();
 
         return services;
+    }
+
+    private static void Validate(PubSubAdminOptions o)
+    {
+        if (o.ManagementBaseUrl is null)
+            throw new InvalidOperationException("PubSubAdminOptions.ManagementBaseUrl is required.");
+        if (string.IsNullOrWhiteSpace(o.ManagementUser))
+            throw new InvalidOperationException("PubSubAdminOptions.ManagementUser is required.");
+        if (string.IsNullOrWhiteSpace(o.ManagementPassword))
+            throw new InvalidOperationException("PubSubAdminOptions.ManagementPassword is required.");
+        if (string.IsNullOrWhiteSpace(o.VHost))
+            throw new InvalidOperationException("PubSubAdminOptions.VHost is required.");
+        if (string.IsNullOrWhiteSpace(o.ConnectionString))
+            throw new InvalidOperationException("PubSubAdminOptions.ConnectionString is required.");
     }
 }

@@ -71,18 +71,24 @@ All four live in the shared `PubSub` package. A future `PubSub.Kafka` implementa
 ## Monitoring console (`PubSub.Pulse`)
 
 `PubSub.Pulse` is a self-hosted Blazor WebAssembly console that shows live statistics for a
-PubSub installation — publish/consume/DLQ rates, per-queue depth and in-flight age, handler
-p95, and the contents of every `.error` queue with one-click replay/delete. The whole WASM app
-is embedded in the `PubSub.Pulse` assembly, so there is nothing extra to deploy.
+PubSub installation — publish/consume/DLQ rates, per-queue depth, exchange/topic topology, and the
+contents of every `.error` queue with one-click replay/delete. The whole WASM app is embedded in
+the `PubSub.Pulse` assembly, so there is nothing extra to deploy.
+
+The admin **scrapes the RabbitMQ Management HTTP API**, so one Pulse instance pointed at a broker
+shows the whole vhost — no consumer registration required. It does not depend on
+`AddPubSubRabbitMq`, so Pulse can also run as a **standalone ops binary** pointed at a broker.
 
 ```csharp
-builder.Services.AddPubSubRabbitMq(new PubSubRabbitMqOptions { ConnectionString = "amqp://…" }, b =>
+builder.Services.AddPubSubRabbitMqAdmin(o =>                              // exposes IPubSubAdmin
 {
-    b.Publish<OrderPlaced>();
-    b.Subscribe<OrderPlaced, OrderPlacedConsumer>();
+    o.ServiceName = "Shop.Api";                                          // "endpoint" column
+    o.ManagementBaseUrl = new Uri("http://rabbit:15672");                // management HTTP API
+    o.ManagementUser = "admin";
+    o.ManagementPassword = "admin";
+    o.VHost = "/";
+    o.ConnectionString = "amqp://…";                                     // error-queue ops only
 });
-
-builder.Services.AddPubSubRabbitMqAdmin(o => o.ServiceName = "Shop.Api"); // exposes IPubSubAdmin
 builder.Services.AddPubSubPulse();                                        // console options + JSON
 
 var app = builder.Build();
@@ -92,14 +98,20 @@ app.Run();
 
 Browse to `/pulse`. Mount it behind your own auth if the stats should not be public.
 
-- **No management plugin required.** Depth and consumer counts come from AMQP passive declares,
-  failed messages from peeking the `.error` queues, and rates/p95/in-flight from the library's
-  own in-process meters (so the rates reflect *this* process).
+- **Management plugin required.** Depth, consumer counts, rates, and topology come from the
+  Management HTTP API (`rabbitmq-management`). Failed-message peek/replay/delete use AMQP
+  (`ConnectionString`). The management endpoint and credentials are configured explicitly and are
+  never inferred from the AMQP URI.
+- **Handler p95 / in-flight are no longer computed.** The broker cannot report them, so those
+  gauges render as `0`/n/a and queue health keys off **depth + error%** only. The hot-path meters
+  (`pubsub.consumer.handler_ms`, `pubsub.consumer.in_flight_age_ms`) are still emitted for
+  OpenTelemetry — only the in-process aggregator was removed.
 - **Vendor-neutral.** The console talks to `IPubSubAdmin` (in the core `PubSub` package). The
   RabbitMQ implementation ships in `PubSub.RabbitMQ`; a future backend can drive the same UI.
 - **Runnable sample.** `samples/PubSub.Pulse.Sample` wires the above with demo traffic (incl. a
-  deliberately flaky consumer). Start RabbitMQ with its `docker-compose.yml`, then
-  `dotnet run --project samples/PubSub.Pulse.Sample` and open `http://localhost:5080/pulse`.
+  deliberately flaky consumer). Start RabbitMQ with its `docker-compose.yml` (image
+  `rabbitmq:3.13-management`), then `dotnet run --project samples/PubSub.Pulse.Sample` and open
+  `http://localhost:5080/pulse`.
 
 ## Error queue + replay playbook
 

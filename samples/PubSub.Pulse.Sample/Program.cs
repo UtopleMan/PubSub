@@ -1,6 +1,7 @@
 using PubSub.Pulse;
 using PubSub.Pulse.Sample;
 using PubSub.RabbitMQ;
+using PubSub.RabbitMQ.Admin;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,7 +22,15 @@ builder.Services.AddPubSubRabbitMq(new PubSubRabbitMqOptions
     b.Subscribe<InventoryReserved, FlakyReserver>();
 });
 
-builder.Services.AddPubSubRabbitMqAdmin(o => o.ServiceName = "Shop.Api");
+builder.Services.AddPubSubRabbitMqAdmin(o =>
+{
+    o.ServiceName = "Shop.Api";
+    o.ManagementBaseUrl = new Uri(builder.Configuration["RabbitMq:ManagementUrl"] ?? "http://localhost:15672");
+    o.ManagementUser = builder.Configuration["RabbitMq:ManagementUser"] ?? "admin";
+    o.ManagementPassword = builder.Configuration["RabbitMq:ManagementPassword"] ?? "admin";
+    o.VHost = "/";
+    o.ConnectionString = connectionString;
+});
 builder.Services.AddPubSubPulse(o => o.Title = "PubSub Pulse — Shop");
 builder.Services.AddHostedService<DemoTraffic>();
 

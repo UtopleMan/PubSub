@@ -7,4 +7,4 @@ services:
       RABBITMQ_DEFAULT_PASS: admin
     ports:
       - "5672:5672"    # AMQP
-      - "15672:15672"  # management UI (optional; the console does not use it)
+      - "15672:15672"  # management HTTP API — the Pulse console scrapes this for stats

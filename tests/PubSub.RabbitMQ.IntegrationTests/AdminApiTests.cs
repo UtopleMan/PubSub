@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using Microsoft.Extensions.DependencyInjection;
 using PubSub;
 using PubSub.Admin;
+using PubSub.RabbitMQ.Admin;
 using Shouldly;
 using Xunit;
 
@@ -52,7 +53,11 @@ public class AdminApiTests(RabbitMqFixture rmq)
             s.AddPubSubRabbitMqAdmin(o =>
             {
                 o.ServiceName = "itest";
-                o.SampleInterval = TimeSpan.FromMilliseconds(300);
+                o.ManagementBaseUrl = new Uri(rmq.ManagementUri);
+                o.ManagementUser = rmq.ManagementUser;
+                o.ManagementPassword = rmq.ManagementPassword;
+                o.VHost = "/";
+                o.ConnectionString = rmq.ConnectionString;
             });
         });
         await host.StartAsync();

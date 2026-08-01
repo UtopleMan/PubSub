@@ -5,23 +5,24 @@ namespace PubSub.Admin;
 /// The RabbitMQ implementation lives in <c>PubSub.RabbitMQ</c>; a future backend (Kafka, …)
 /// can implement the same interface and drive the same <c>PubSub.Pulse</c> console.
 /// <para>
-/// All members reflect the local process: the publishers/consumers registered in this host and
-/// the queues they own. Rate metrics are process-scoped (sampled from in-process meters); depth
-/// and error-queue contents are read live from the broker.
+/// The RabbitMQ implementation reads the broker directly (RabbitMQ Management HTTP API for
+/// topology/depth/rates; AMQP for error-queue contents), so it reflects the whole vhost rather
+/// than a single process. Handler latency (p95) and in-flight age are not available from the
+/// broker and are reported as <c>0</c>.
 /// </para>
 /// </summary>
 public interface IPubSubAdmin
 {
-    /// <summary>Identity + connectivity of the broker this process is attached to.</summary>
+    /// <summary>Identity + connectivity of the broker this console is attached to.</summary>
     Task<MessagingInstallation> GetInstallationAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>Registered exchanges and routing keys this process participates in.</summary>
+    /// <summary>Exchanges and routing keys with consumer queues in the vhost.</summary>
     Task<TopologySnapshot> GetTopologyAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>Per-queue live statistics for every registered consumer endpoint.</summary>
+    /// <summary>Per-queue live statistics for every consumer queue in the vhost.</summary>
     Task<IReadOnlyList<QueueStat>> GetQueueStatsAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>The headline metric cards (publish/consume/DLQ rates, handler p95).</summary>
+    /// <summary>The headline metric cards (publish/consume/DLQ rates; handler p95 is <c>0</c>).</summary>
     Task<PubSubKpis> GetKpisAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Messages currently dead-lettered in <c>{queue}.error</c> queues, filtered by <paramref name="query"/>.</summary>

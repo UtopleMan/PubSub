@@ -10,6 +10,7 @@
     <Project Path="src/PubSub.SourceGenerators/PubSub.SourceGenerators.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/PubSub.RabbitMQ.Tests/PubSub.RabbitMQ.Tests.csproj" />
     <Project Path="tests/PubSub.Tests/PubSub.Tests.csproj" />
     <Project Path="tests/PubSub.Pulse.Tests/PubSub.Pulse.Tests.csproj" />
     <Project Path="tests/PubSub.RabbitMQ.IntegrationTests/PubSub.RabbitMQ.IntegrationTests.csproj" />

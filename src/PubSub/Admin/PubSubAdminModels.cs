@@ -23,8 +23,13 @@ public enum QueueHealth
 }
 
 /// <summary>
-/// Live + registered statistics for one consumer endpoint (an <c>ISubscribeTo&lt;T&gt;</c> bound to a
-/// queue). One row of the console's "Endpoints &amp; queues" table.
+/// Live statistics for one consumer queue in the vhost. One row of the console's
+/// "Endpoints &amp; queues" table.
+/// <para>
+/// <see cref="HandlerP95Ms"/> and <see cref="InFlightAgeMs"/> are always <c>0</c> for the RabbitMQ
+/// backend (the broker cannot report handler latency); <see cref="Status"/> is derived from
+/// <see cref="Depth"/> + <see cref="ErrorPercent"/> only.
+/// </para>
 /// </summary>
 public sealed record QueueStat(
     string Queue,

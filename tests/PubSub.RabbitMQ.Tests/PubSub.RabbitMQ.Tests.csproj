@@ -4,17 +4,14 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <RootNamespace>PubSub.RabbitMQ.IntegrationTests</RootNamespace>
-    <AssemblyName>PubSub.RabbitMQ.IntegrationTests</AssemblyName>
+    <RootNamespace>PubSub.RabbitMQ.Tests</RootNamespace>
+    <AssemblyName>PubSub.RabbitMQ.Tests</AssemblyName>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\PubSub\PubSub.csproj" />
     <ProjectReference Include="..\..\src\PubSub.RabbitMQ\PubSub.RabbitMQ.csproj" />
-    <ProjectReference Include="..\..\src\PubSub.SourceGenerators\PubSub.SourceGenerators.csproj"
-                      OutputItemType="Analyzer"
-                      ReferenceOutputAssembly="false" />
   </ItemGroup>
 
   <ItemGroup>
@@ -22,10 +19,6 @@
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
     <PackageReference Include="Shouldly" Version="4.2.1" />
-    <PackageReference Include="Testcontainers.RabbitMq" Version="4.7.0" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.3" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.9" />
-    <PackageReference Include="OpenTelemetry" Version="1.15.3" />
   </ItemGroup>
 
 </Project>
