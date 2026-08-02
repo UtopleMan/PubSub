@@ -277,7 +277,19 @@ internal sealed class ErrorQueueOperations(
             Count: deliveryCount > 0 ? (int)deliveryCount : 1,
             Headers: headers,
             StackTrace: stack,
-            ShovelCommand: ShovelCommand(c));
+            ShovelCommand: ShovelCommand(c),
+            Body: BodyPreview(res.Body));
+    }
+
+    // The dead-lettered payload, decoded as UTF-8 and capped at the first 1 KB so the console can
+    // show what failed without shipping whole messages over the wire.
+    private const int BodyPreviewChars = 1024;
+
+    private static string BodyPreview(ReadOnlyMemory<byte> body)
+    {
+        if (body.IsEmpty) return string.Empty;
+        var text = Encoding.UTF8.GetString(body.Span);
+        return text.Length > BodyPreviewChars ? text[..BodyPreviewChars] : text;
     }
 
     private string ShovelCommand(ErrorQueueDescriptor c)

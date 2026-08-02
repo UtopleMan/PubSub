@@ -103,7 +103,9 @@ public sealed record FailedMessage(
     int Count,
     IReadOnlyList<FailedMessageHeader> Headers,
     string StackTrace,
-    string ShovelCommand);
+    string ShovelCommand,
+    // First 1 KB of the dead-lettered payload, decoded as UTF-8, for the detail view.
+    string Body = "");
 
 /// <summary>Filter/paging criteria for <see cref="IPubSubAdmin.GetFailedMessagesAsync"/>.</summary>
 public sealed record FailedQuery(

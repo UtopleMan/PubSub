@@ -28,7 +28,7 @@
         <section class="rounded-lg bg-surface border border-line overflow-hidden flex flex-col min-h-0">
             <div class="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-line shrink-0">
                 <h2 class="text-[14px] font-medium m-0">Failed messages</h2>
-                <span class="text-[11px] text-muted tabular-nums">@Rows.Count of @Failed.Count</span>
+                <span class="text-[11px] text-muted tabular-nums">@Rows.Count of @_view.Count</span>
                 <div class="flex-1"></div>
                 <input type="text" value="@_search" @oninput="e => _search = e.Value?.ToString() ?? string.Empty"
                        placeholder="error queue, exception, pod…"
@@ -48,7 +48,7 @@
                         @if (_busy == "sel") { <span class="pulse-spinner"></span> <span>Replaying…</span> } else { <span>Replay selected</span> }
                     </button>
                     <button type="button" @onclick="() => _confirmDelete = true" disabled="@Busy" class="@("h-8 px-3 rounded-md border border-line text-[12px] text-crit hover:border-crit transition-colors " + (Busy ? "opacity-60" : ""))">Delete</button>
-                    <button type="button" @onclick="() => _sel.Clear()" class="h-8 px-2 text-[12px] text-muted hover:text-ink">Clear</button>
+                    <button type="button" @onclick="ClearSelection" class="h-8 px-2 text-[12px] text-muted hover:text-ink">Clear</button>
                 </div>
             }
 
@@ -62,8 +62,8 @@
                 @foreach (var f in Rows)
                 {
                     <div class="border-b border-line">
-                        <div class="grid grid-cols-[32px_100px_minmax(230px,1.5fr)_minmax(230px,1.6fr)_100px_58px_28px] gap-3 px-4 py-2.5 items-center hover:bg-surface2 transition-colors">
-                            <button type="button" @onclick="() => Toggle(f.Id)" class="@Box(_sel.Contains(f.Id))"></button>
+                        <div @onclick="() => ToggleExpand(f.Id)" class="grid grid-cols-[32px_100px_minmax(230px,1.5fr)_minmax(230px,1.6fr)_100px_58px_28px] gap-3 px-4 py-2.5 items-center hover:bg-surface2 transition-colors cursor-pointer">
+                            <button type="button" @onclick="() => Toggle(f.Id)" @onclick:stopPropagation="true" class="@Box(_sel.Contains(f.Id))"></button>
                             <span class="text-[12px] font-mono text-muted">@f.LastSeen.ToString("HH:mm:ss")</span>
                             <div class="min-w-0">
                                 <div class="text-[12px] font-mono truncate">@f.ErrorQueue</div>
@@ -75,7 +75,7 @@
                             </div>
                             <span class="text-[12px] font-mono tabular-nums text-right text-muted">@f.HandlerElapsedMs</span>
                             <span class="text-[12px] tabular-nums text-right text-muted">@f.Count</span>
-                            <button type="button" @onclick="() => _expanded = _expanded == f.Id ? null : f.Id" class="text-[12px] text-muted hover:text-accent">@(_expanded == f.Id ? "▾" : "▸")</button>
+                            <button type="button" @onclick="() => ToggleExpand(f.Id)" @onclick:stopPropagation="true" class="text-[12px] text-muted hover:text-accent">@(_expanded == f.Id ? "▾" : "▸")</button>
                         </div>
                         @if (_expanded == f.Id)
                         {
@@ -99,6 +99,8 @@
                                     </div>
                                 </div>
                                 <div class="flex flex-col gap-2 min-w-0">
+                                    <div class="text-[10px] uppercase tracking-[0.09em] text-muted">Message body — first 1 KB</div>
+                                    <pre class="m-0 p-3 rounded-md bg-surface border border-line text-[11.5px] font-mono text-ink whitespace-pre-wrap break-all overflow-x-auto">@(string.IsNullOrEmpty(f.Body) ? "(empty)" : f.Body)</pre>
                                     <div class="text-[10px] uppercase tracking-[0.09em] text-muted">x-stacktrace</div>
                                     <pre class="m-0 p-3 rounded-md bg-surface border border-line text-[11.5px] font-mono text-muted leading-relaxed overflow-x-auto">@f.StackTrace</pre>
                                 </div>
@@ -158,6 +160,20 @@
     private bool _confirmDelete;
     private int _toastSeq;
 
+    // The list actually rendered. Each poll swaps the Failed parameter for a fresh error-queue
+    // peek whose membership barely overlaps the last (ids are content hashes and traffic churns),
+    // so binding rows straight to Failed made the expanded row collapse and selected rows vanish
+    // the instant new data arrived. Freeze this snapshot while the user is mid-interaction — a row
+    // expanded or anything selected — and resync to the latest poll once they're idle again.
+    private IReadOnlyList<FailedMessage> _view = Array.Empty<FailedMessage>();
+
+    protected override void OnParametersSet() => SyncViewIfIdle();
+
+    private void SyncViewIfIdle()
+    {
+        if (_expanded is null && _sel.Count == 0) _view = Failed;
+    }
+
     // Key of the in-flight replay/delete action (or null when idle). Replay/delete loop a network
     // call per error queue, so they can take a while — this drives the button spinner and blocks
     // concurrent/double submits.
@@ -184,11 +200,11 @@
     {
         get
         {
-            var groups = Failed.GroupBy(f => f.ExceptionType)
+            var groups = _view.GroupBy(f => f.ExceptionType)
                 .Select(g => new Group(g.Key, g.Count()))
                 .OrderByDescending(g => g.Count)
                 .ToList();
-            groups.Insert(0, new Group("all", Failed.Count));
+            groups.Insert(0, new Group("all", _view.Count));
             return groups;
         }
     }
@@ -198,7 +214,7 @@
         get
         {
             var term = _search.Trim();
-            IEnumerable<FailedMessage> q = Failed;
+            IEnumerable<FailedMessage> q = _view;
             if (_exType != "all") q = q.Where(f => f.ExceptionType == _exType);
             if (term.Length > 0)
                 q = q.Where(f => (f.ErrorQueue + " " + f.ExceptionType + " " + f.ExceptionMessage + " " + f.Pod + " " + f.Id)
@@ -209,7 +225,17 @@
 
     private bool AllSelected => Rows.Count > 0 && Rows.All(f => _sel.Contains(f.Id));
 
-    private void Select(string type) { _exType = type; _sel.Clear(); _expanded = null; }
+    private void Select(string type) { _exType = type; _sel.Clear(); _expanded = null; SyncViewIfIdle(); }
+
+    private void ClearSelection() { _sel.Clear(); SyncViewIfIdle(); }
+
+    // Collapsing resyncs to the latest poll (unless a selection still holds the freeze); expanding
+    // freezes the current snapshot (see _view).
+    private void ToggleExpand(string id)
+    {
+        if (_expanded == id) { _expanded = null; SyncViewIfIdle(); }
+        else _expanded = id;
+    }
     private void Toggle(string id) { if (!_sel.Add(id)) _sel.Remove(id); }
     private void ToggleAll()
     {
@@ -252,6 +278,7 @@
     {
         _sel.Clear();
         _expanded = null;
+        SyncViewIfIdle();
         await Flash(message);
         await OnChanged.InvokeAsync();
     }

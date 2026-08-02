@@ -14,6 +14,7 @@
     <!-- The Blazor WASM client is published here, then embedded into this assembly. -->
     <PulseClientProject>$(MSBuildThisFileDirectory)..\PubSub.Pulse.Client\PubSub.Pulse.Client.csproj</PulseClientProject>
     <PulseClientPublishDir>$(MSBuildThisFileDirectory)obj\pulseclient\</PulseClientPublishDir>
+    <PulseClientStamp>$(MSBuildThisFileDirectory)obj\pulseclient.embed.stamp</PulseClientStamp>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,24 +23,48 @@
   </ItemGroup>
 
   <!--
-    Publish the WASM client and embed its deployable wwwroot (the StaticWebAssetBasePath="pulse"
-    subtree). Each file's LogicalName is its forward-slash relative path (e.g.
-    "_framework/blazor.webassembly.<hash>.js"), so the runtime serves it by exact path — no name
-    mangling, no manifest xml. Injected at AssignTargetPaths so the compiler embeds them.
-    Compressed variants are excluded (we serve uncompressed).
+    The client is embedded through a nested publish, not a ProjectReference, so nothing tells the
+    build that editing the console invalidates this assembly. List the client's sources explicitly:
+    as target Inputs they drive the incremental republish below, and as UpToDateCheckInput they make
+    the IDE's fast up-to-date check (Rider/VS) rebuild this host on a client edit — without them the
+    IDE serves a stale WASM after every console change.
   -->
-  <Target Name="PublishAndEmbedPulseClient"
-          BeforeTargets="AssignTargetPaths">
-    <!--
-      Publish writes into a fixed PublishDir and never deletes what it finds there. Blazor assets
-      are content-fingerprinted, so across builds old dotnet.<hash>.js / index.html / import maps
-      pile up and the glob below embeds an inconsistent mix — the WASM runtime then can't resolve a
-      matching fingerprint and the console fails to boot. Clean first so we embed exactly one build.
-    -->
+  <ItemGroup>
+    <PulseClientSource Include="$(MSBuildThisFileDirectory)..\PubSub.Pulse.Client\**\*.cs" />
+    <PulseClientSource Include="$(MSBuildThisFileDirectory)..\PubSub.Pulse.Client\**\*.razor" />
+    <PulseClientSource Include="$(MSBuildThisFileDirectory)..\PubSub.Pulse.Client\PubSub.Pulse.Client.csproj" />
+    <PulseClientSource Include="$(MSBuildThisFileDirectory)..\PubSub.Pulse.Client\wwwroot\**\*" />
+    <PulseClientSource Remove="$(MSBuildThisFileDirectory)..\PubSub.Pulse.Client\obj\**" />
+    <PulseClientSource Remove="$(MSBuildThisFileDirectory)..\PubSub.Pulse.Client\bin\**" />
+    <UpToDateCheckInput Include="@(PulseClientSource)" />
+  </ItemGroup>
+
+  <!--
+    Publish the WASM client into a fixed dir. Incremental on the client's sources (Inputs/Outputs):
+    a client edit reruns it, an unchanged host build skips it. Clean first because publish never
+    deletes stale output, and content-fingerprinted Blazor assets (dotnet.<hash>.js, import maps)
+    would otherwise pile up and the runtime couldn't resolve a matching fingerprint.
+  -->
+  <Target Name="PublishPulseClient"
+          Inputs="@(PulseClientSource)"
+          Outputs="$(PulseClientStamp)">
     <RemoveDir Directories="$(PulseClientPublishDir)" />
     <MSBuild Projects="$(PulseClientProject)"
              Targets="Restore;Publish"
              Properties="Configuration=$(Configuration);PublishDir=$(PulseClientPublishDir)" />
+    <Touch Files="$(PulseClientStamp)" AlwaysCreate="true" />
+  </Target>
+
+  <!--
+    Embed the published wwwroot (the StaticWebAssetBasePath="pulse" subtree). Each file's LogicalName
+    is its forward-slash relative path (e.g. "_framework/blazor.webassembly.<hash>.js") so the runtime
+    serves it by exact path — no name mangling, no manifest xml. Runs every build (so CoreCompile
+    always sees the assets), before AssignTargetPaths, after the publish it depends on. Compressed
+    variants are excluded (we serve uncompressed).
+  -->
+  <Target Name="EmbedPulseClient"
+          BeforeTargets="AssignTargetPaths"
+          DependsOnTargets="PublishPulseClient">
     <ItemGroup>
       <_PulseAsset Include="$(PulseClientPublishDir)wwwroot\pulse\**\*"
                    Exclude="$(PulseClientPublishDir)wwwroot\pulse\**\*.gz;$(PulseClientPublishDir)wwwroot\pulse\**\*.br" />
