@@ -61,6 +61,18 @@ public class PubSubTopicResolverTests
         PubSubTopicResolver.ResolveConsumerPrefetch(typeof(ConsumerWithPrefetch)).ShouldBe<ushort>(10);
     }
 
+    [Fact]
+    public void ResolveConsumerConcurrency_NoAttribute_ReturnsDefaultOne()
+    {
+        PubSubTopicResolver.ResolveConsumerConcurrency(typeof(ConsumerNoAttr)).ShouldBe<ushort>(1);
+    }
+
+    [Fact]
+    public void ResolveConsumerConcurrency_AttributePresent_ReturnsAttributeValue()
+    {
+        PubSubTopicResolver.ResolveConsumerConcurrency(typeof(ConsumerWithConcurrency)).ShouldBe<ushort>(3);
+    }
+
     [PubSubTopic("test.routing-key")]
     private sealed record Annotated;
 
@@ -80,6 +92,12 @@ public class PubSubTopicResolverTests
 
     [ConsumerPrefetch(10)]
     private sealed class ConsumerWithPrefetch : ISubscribeTo<Annotated>
+    {
+        public Task Handle(Annotated message, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    [ConsumerConcurrency(3)]
+    private sealed class ConsumerWithConcurrency : ISubscribeTo<Annotated>
     {
         public Task Handle(Annotated message, CancellationToken cancellationToken) => Task.CompletedTask;
     }

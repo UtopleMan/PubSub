@@ -22,6 +22,7 @@ internal sealed class RabbitMqConsumerHost<T, TConsumer> : IHostedService, IInFl
     private readonly IServiceProvider _services;
     private readonly PubSubTopicAttribute _topic;
     private readonly ushort _prefetch;
+    private readonly ushort _concurrency;
     private readonly ILogger<RabbitMqConsumerHost<T, TConsumer>> _logger;
     private readonly string _queueName;
     private readonly string _errorQueueName;
@@ -37,6 +38,7 @@ internal sealed class RabbitMqConsumerHost<T, TConsumer> : IHostedService, IInFl
         IServiceProvider services,
         PubSubTopicAttribute topic,
         ushort prefetch,
+        ushort concurrency,
         ILogger<RabbitMqConsumerHost<T, TConsumer>> logger)
     {
         _connectionProvider = connectionProvider;
@@ -44,6 +46,7 @@ internal sealed class RabbitMqConsumerHost<T, TConsumer> : IHostedService, IInFl
         _services = services;
         _topic = topic;
         _prefetch = prefetch;
+        _concurrency = concurrency < 1 ? (ushort)1 : concurrency;
         _logger = logger;
         _queueName = PubSubQueueNaming.ResolveQueueName(topic, typeof(TConsumer));
         _errorQueueName = $"{_queueName}.error";
@@ -58,7 +61,10 @@ internal sealed class RabbitMqConsumerHost<T, TConsumer> : IHostedService, IInFl
     {
         var conn = await _connectionProvider.GetOrOpenAsync(cancellationToken).ConfigureAwait(false);
         _channel = await conn.CreateChannelAsync(
-            new CreateChannelOptions(publisherConfirmationsEnabled: true, publisherConfirmationTrackingEnabled: true),
+            new CreateChannelOptions(
+                publisherConfirmationsEnabled: true,
+                publisherConfirmationTrackingEnabled: true,
+                consumerDispatchConcurrency: _concurrency),
             cancellationToken).ConfigureAwait(false);
 
         await _channel.ExchangeDeclareAsync(
@@ -100,8 +106,8 @@ internal sealed class RabbitMqConsumerHost<T, TConsumer> : IHostedService, IInFl
             cancellationToken: cancellationToken).ConfigureAwait(false);
 
         _logger.LogInformation(
-            "Consumer {Handler} started on queue {Queue} with prefetch {Prefetch} (consumer-tag {Tag})",
-            typeof(TConsumer).FullName, _queueName, _prefetch, _consumerTag);
+            "Consumer {Handler} started on queue {Queue} with prefetch {Prefetch} concurrency {Concurrency} (consumer-tag {Tag})",
+            typeof(TConsumer).FullName, _queueName, _prefetch, _concurrency, _consumerTag);
     }
 
     private async Task OnReceivedAsync(object sender, BasicDeliverEventArgs ea)

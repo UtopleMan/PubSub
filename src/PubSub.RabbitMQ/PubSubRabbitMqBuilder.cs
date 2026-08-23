@@ -62,7 +62,8 @@ public sealed class PubSubRabbitMqBuilder
             };
         }
         var prefetch = PubSubTopicResolver.ResolveConsumerPrefetch(typeof(TConsumer));
-        _consumers.Add(new PubSubConsumerRegistration(typeof(T), typeof(TConsumer), topic, prefetch));
+        var concurrency = PubSubTopicResolver.ResolveConsumerConcurrency(typeof(TConsumer));
+        _consumers.Add(new PubSubConsumerRegistration(typeof(T), typeof(TConsumer), topic, prefetch, concurrency));
         _services.TryAddScoped<TConsumer>();
         _services.AddSingleton<IHostedService>(sp => new RabbitMqConsumerHost<T, TConsumer>(
             sp.GetRequiredService<PubSubConnectionProvider>(),
@@ -70,6 +71,7 @@ public sealed class PubSubRabbitMqBuilder
             sp,
             topic,
             prefetch,
+            concurrency,
             sp.GetRequiredService<ILogger<RabbitMqConsumerHost<T, TConsumer>>>()));
         return this;
     }
@@ -81,4 +83,5 @@ public sealed record PubSubConsumerRegistration(
     Type MessageType,
     Type ConsumerType,
     PubSubTopicAttribute Topic,
-    ushort Prefetch);
+    ushort Prefetch,
+    ushort Concurrency);

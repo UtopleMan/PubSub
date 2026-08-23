@@ -43,6 +43,14 @@ public static class PubSubTopicResolver
         return attr is null ? defaultCount : checked((ushort)attr.Count);
     }
 
+    /// <summary>The consumer-dispatch concurrency for a handler (default 1 = serial), from <see cref="ConsumerConcurrencyAttribute"/>.</summary>
+    public static ushort ResolveConsumerConcurrency(Type consumerType, ushort defaultCount = 1)
+    {
+        ArgumentNullException.ThrowIfNull(consumerType);
+        var attr = consumerType.GetCustomAttribute<ConsumerConcurrencyAttribute>(inherit: true);
+        return attr is null ? defaultCount : checked((ushort)attr.Count);
+    }
+
     /// <summary>The single <see cref="PublishMode"/> selected by the contract's attributes (defaults to <see cref="PublishMode.ConfirmPerMessage"/>); throws if more than one is present.</summary>
     public static PublishMode ResolvePublishMode<T>() => ResolvePublishMode(typeof(T));
 

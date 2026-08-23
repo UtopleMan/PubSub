@@ -17,6 +17,7 @@ public class PublicSurfaceTests
             "PubSub.PubSubTopicAttribute",
             "PubSub.PublishTimeoutAttribute",
             "PubSub.ConsumerPrefetchAttribute",
+            "PubSub.ConsumerConcurrencyAttribute",
             "PubSub.ConfirmPerMessageAttribute",
             "PubSub.BatchedPublishAttribute",
             "PubSub.FireAndForgetAttribute",
