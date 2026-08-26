@@ -48,7 +48,8 @@ public sealed class PubSubRabbitMqBuilder
         return this;
     }
 
-    public PubSubRabbitMqBuilder Subscribe<T, TConsumer>(string? queueName = null)
+    public PubSubRabbitMqBuilder Subscribe<T, TConsumer>(
+        string? queueName = null, int? concurrencyOverride = null, int? prefetchOverride = null)
         where T : class
         where TConsumer : class, ISubscribeTo<T>
     {
@@ -61,8 +62,14 @@ public sealed class PubSubRabbitMqBuilder
                 Queue = queueName,
             };
         }
-        var prefetch = PubSubTopicResolver.ResolveConsumerPrefetch(typeof(TConsumer));
-        var concurrency = PubSubTopicResolver.ResolveConsumerConcurrency(typeof(TConsumer));
+        // A null override defers to the [ConsumerPrefetch]/[ConsumerConcurrency] attribute so a consumer can
+        // ship serial (default 1) yet scale via runtime config — an env change, not a recompile.
+        var prefetch = prefetchOverride is { } p
+            ? ClampToConsumerCount(p)
+            : PubSubTopicResolver.ResolveConsumerPrefetch(typeof(TConsumer));
+        var concurrency = concurrencyOverride is { } c
+            ? ClampToConsumerCount(c)
+            : PubSubTopicResolver.ResolveConsumerConcurrency(typeof(TConsumer));
         _consumers.Add(new PubSubConsumerRegistration(typeof(T), typeof(TConsumer), topic, prefetch, concurrency));
         _services.TryAddScoped<TConsumer>();
         _services.AddSingleton<IHostedService>(sp => new RabbitMqConsumerHost<T, TConsumer>(
@@ -75,6 +82,9 @@ public sealed class PubSubRabbitMqBuilder
             sp.GetRequiredService<ILogger<RabbitMqConsumerHost<T, TConsumer>>>()));
         return this;
     }
+
+    private static ushort ClampToConsumerCount(int value) =>
+        value < 1 ? (ushort)1 : value > ushort.MaxValue ? ushort.MaxValue : (ushort)value;
 }
 
 public sealed record PubSubPublisherRegistration(Type MessageType, PubSubTopicAttribute Topic, PublishMode Mode);
