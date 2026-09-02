@@ -49,8 +49,21 @@
           Inputs="@(PulseClientSource)"
           Outputs="$(PulseClientStamp)">
     <RemoveDir Directories="$(PulseClientPublishDir)" />
+    <!--
+      Restore and Publish must be two separate MSBuild invocations. In a single
+      Targets="Restore;Publish" call the project is evaluated once, up front — before Restore has
+      written obj/PubSub.Pulse.Client.csproj.nuget.g.props/.targets. Those generated imports are
+      what bring in the WebAssembly SDK targets, so on a cold tree Publish runs against a project
+      where ResolveWasmOutputs was never defined and the build fails with:
+        Microsoft.NET.Sdk.BlazorWebAssembly.6_0.targets(110,44): error MSB4057:
+        The target "ResolveWasmOutputs" does not exist in the project.
+      Splitting them lets the Publish call evaluate after the restore assets exist.
+    -->
     <MSBuild Projects="$(PulseClientProject)"
-             Targets="Restore;Publish"
+             Targets="Restore"
+             Properties="Configuration=$(Configuration)" />
+    <MSBuild Projects="$(PulseClientProject)"
+             Targets="Publish"
              Properties="Configuration=$(Configuration);PublishDir=$(PulseClientPublishDir)" />
     <Touch Files="$(PulseClientStamp)" AlwaysCreate="true" />
   </Target>
