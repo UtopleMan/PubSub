@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
@@ -237,9 +239,18 @@ public sealed class PubSubDispatcherGenerator : IIncrementalGenerator
 
     private static string TypeRef(ITypeSymbol t) => t.ToDisplayString();
 
+    /// <summary>
+    /// Emits the parameter's default as a literal assigned to <c>JsonParameterInfoValues.DefaultValue</c>,
+    /// which is typed <c>object</c>. The literal must therefore box the parameter's OWN type: a bare
+    /// <c>0</c> for a <c>long</c> parameter boxes an <see cref="int"/>, and <c>JsonParameterInfo&lt;long&gt;</c>
+    /// throws <c>InvalidCastException</c> when it unboxes. Numerics and enums are cast explicitly for that
+    /// reason, and formatted with <see cref="CultureInfo.InvariantCulture"/> because the result is C# source,
+    /// not display text.
+    /// </summary>
     private static string DefaultLiteral(IParameterSymbol p)
     {
         if (!p.HasExplicitDefaultValue) return "null";
+
         var v = p.ExplicitDefaultValue;
         return v switch
         {
@@ -247,8 +258,30 @@ public sealed class PubSubDispatcherGenerator : IIncrementalGenerator
             string s => $"\"{s.Replace("\\", "\\\\").Replace("\"", "\\\"")}\"",
             bool b => b ? "true" : "false",
             char c => $"'{c}'",
-            _ => v.ToString() ?? "null",
+            double d => TypedLiteral(p, DoubleLiteral(d)),
+            float f => TypedLiteral(p, SingleLiteral(f)),
+            decimal m => TypedLiteral(p, m.ToString(CultureInfo.InvariantCulture) + "m"),
+            IFormattable n => TypedLiteral(p, n.ToString(null, CultureInfo.InvariantCulture)),
+            _ => "null",
         };
+    }
+
+    private static string TypedLiteral(IParameterSymbol p, string literal) => $"({TypeRef(p.Type)})({literal})";
+
+    private static string DoubleLiteral(double d)
+    {
+        if (double.IsNaN(d)) return "double.NaN";
+        if (double.IsPositiveInfinity(d)) return "double.PositiveInfinity";
+        if (double.IsNegativeInfinity(d)) return "double.NegativeInfinity";
+        return d.ToString("R", CultureInfo.InvariantCulture) + "D";
+    }
+
+    private static string SingleLiteral(float f)
+    {
+        if (float.IsNaN(f)) return "float.NaN";
+        if (float.IsPositiveInfinity(f)) return "float.PositiveInfinity";
+        if (float.IsNegativeInfinity(f)) return "float.NegativeInfinity";
+        return f.ToString("R", CultureInfo.InvariantCulture) + "F";
     }
 
     private static string SafeIdent(string name)
