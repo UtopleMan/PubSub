@@ -94,6 +94,31 @@ public class GeneratedDispatcherDefaultValueTests
         decoded.CountryId.ShouldBe(7);
     }
 
+    [Fact]
+    public void NullableReferenceParameters_RoundTripThroughGeneratedDispatcher()
+    {
+        PubSubDispatcherRegistry.HasGeneratedDispatcher<NullableReferenceContract>().ShouldBeTrue();
+
+        var dispatcher = PubSubDispatcherRegistry.GetOrFallback<NullableReferenceContract>();
+
+        var decoded = dispatcher.Deserialize(
+            dispatcher.Serialize(new NullableReferenceContract("USA", ["ema8", "ema20"], "note")));
+
+        decoded.FactorIds.ShouldBe(["ema8", "ema20"]);
+        decoded.Note.ShouldBe("note");
+    }
+
+    [Fact]
+    public void OmittedNullableReferenceParameters_FallBackToNull()
+    {
+        var dispatcher = PubSubDispatcherRegistry.GetOrFallback<NullableReferenceContract>();
+
+        var decoded = dispatcher.Deserialize("""{"iso3":"USA"}"""u8);
+
+        decoded.FactorIds.ShouldBeNull();
+        decoded.Note.ShouldBeNull();
+    }
+
     /// <summary>
     /// The literal is emitted into C# source, so it must be formatted invariantly — under a comma-decimal
     /// culture <c>0.5.ToString()</c> yields <c>0,5</c>, which is a different literal (and not valid in that

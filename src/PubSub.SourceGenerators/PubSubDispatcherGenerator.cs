@@ -153,7 +153,7 @@ public sealed class PubSubDispatcherGenerator : IIncrementalGenerator
                 for (var i = 0; i < ctor.Parameters.Length; i++)
                 {
                     var p = ctor.Parameters[i];
-                    sb.AppendLine($"                new JsonParameterInfoValues {{ Name = \"{p.Name}\", ParameterType = typeof({TypeRef(p.Type)}), Position = {i}, HasDefaultValue = {(p.HasExplicitDefaultValue ? "true" : "false")}, DefaultValue = {DefaultLiteral(p)} }},");
+                    sb.AppendLine($"                new JsonParameterInfoValues {{ Name = \"{p.Name}\", ParameterType = typeof({TypeOfRef(p.Type)}), Position = {i}, HasDefaultValue = {(p.HasExplicitDefaultValue ? "true" : "false")}, DefaultValue = {DefaultLiteral(p)} }},");
                 }
                 sb.AppendLine("            },");
             }
@@ -238,6 +238,16 @@ public sealed class PubSubDispatcherGenerator : IIncrementalGenerator
     }
 
     private static string TypeRef(ITypeSymbol t) => t.ToDisplayString();
+
+    /// <summary>
+    /// The same type reference with any nullable-reference annotation dropped: <c>typeof</c> rejects
+    /// <c>T?</c> for a reference type (CS8639), so a message whose constructor takes a nullable
+    /// reference parameter would otherwise emit source that does not compile.
+    /// </summary>
+    private static string TypeOfRef(ITypeSymbol t) =>
+        t.NullableAnnotation == NullableAnnotation.Annotated && t.IsReferenceType
+            ? t.WithNullableAnnotation(NullableAnnotation.None).ToDisplayString()
+            : TypeRef(t);
 
     /// <summary>
     /// Emits the parameter's default as a literal assigned to <c>JsonParameterInfoValues.DefaultValue</c>,
