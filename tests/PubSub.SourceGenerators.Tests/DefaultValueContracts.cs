@@ -25,3 +25,13 @@ public sealed record EnumDefaultContract(string Iso3, RunKind RunKind = RunKind.
 
 [PubSubTopic("tests.no-defaults")]
 public sealed record NoDefaultsContract(string Iso3, long CountryId);
+
+/// <summary>
+/// A nullable reference parameter: <c>typeof</c> rejects <c>T?</c> for a reference type, so the
+/// emitted parameter metadata has to drop the annotation or the generated source will not compile.
+/// </summary>
+[PubSubTopic("tests.nullable-reference")]
+public sealed record NullableReferenceContract(
+    string Iso3,
+    IReadOnlyList<string>? FactorIds = null,
+    string? Note = null);
